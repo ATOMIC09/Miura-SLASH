@@ -1,11 +1,11 @@
-from pydoc import describe
-from turtle import update
-from cv2 import VideoCapture
+from random import choices
 import discord
-from discord import app_commands
+from discord import Guild, app_commands
 import os
+import asyncio
+import gtts
 
-from soupsieve import select
+from utils import countdown
 
 class aclient(discord.Client):
     def __init__(self):
@@ -21,15 +21,14 @@ class aclient(discord.Client):
 client = aclient()
 bot = app_commands.CommandTree(client)
 
+# Help Embed
 @bot.command(name="help",description="ความช่วยเหลือ", guild=discord.Object(id=720687175611580426))
 async def help(interaction: discord.Integration):
     # หน้าเมนู Embed
     util = discord.Embed(title="**❔ ช่วยเหลือ**",description="╰ *🔧 เครื่องมืออรรถประโยชน์*", color=0x40eefd)
     util.add_field(name="**⌚ นับเวลาถอยหลัง**", value="`/countdown`", inline=False)
     util.add_field(name="**🔌 นับถอยหลังและตัดการเชื่อมต่อ**", value="`/countdis`", inline=False)
-    util.add_field(name="**🛡 ยกเว้นการตัดการเชื่อมต่อ**", value="`/exc`", inline=False)
-    util.add_field(name="**🔇 ปิดเสียงสมาชิก**", value="`/mute`", inline=False)
-    util.add_field(name="**🔊 ยกเลิกการปิดเสียงสมาชิก**", value="`/unmute`", inline=False)
+    util.add_field(name="**🛡 ยกเว้นการตัดการเชื่อมต่อ**", value="`/except`", inline=False) 
     util.add_field(name="**👄 สังเคราะห์เสียง**", value="`/tts`", inline=False)
     util.add_field(name="**📄 แปลงเอกสารเป็นรูปภาพ**", value="`/pdftopng`", inline=False)
     util.add_field(name="**❌ ยกเลิกคำสั่ง**", value="`/cancel`", inline=False)
@@ -119,8 +118,162 @@ async def help(interaction: discord.Integration):
     view.add_item(select)
 
     await interaction.response.send_message(embed=util,view=view)
-    
 
+
+# Countdown
+bot.timestop1 = 0
+@bot.command(name="countdown",description="นับถอยหลัง", guild=discord.Object(id=720687175611580426))
+async def countdown_def(interaction: discord.Interaction, time: str):
+
+    time_int = int(time)
+    bot.timestop1 = time_int
+
+    if time_int < 0:
+        await interaction.response.send_message("**เวลาไม่ถูกต้อง ❌**")
+    else:
+        output = countdown.countdown_fn(time_int)
+        await interaction.response.send_message(output)
+        for i in range(time_int):
+            output = countdown.countdown_fn(time_int)
+            await interaction.edit_original_message(content=output)
+            await asyncio.sleep(1)
+            time_int -= 1
+
+            if bot.timestop1 == -22052603:
+                await interaction.edit_original_message(content="**การนับถอยหลังถูกยกเลิก 🛑**")
+                break
+        if bot.timestop1 != -22052603:
+            await interaction.edit_original_message(content="**หมดเวลา 🔔**")
+
+# Countdis
+bot.timestop2 = 0
+bot.member_except = []
+@bot.command(name="countdis",description="นับถอยหลังและตัดการเชื่อมต่อ", guild=discord.Object(id=720687175611580426))
+async def countdown_def(interaction: discord.Interaction, time: str):
+    people_counter = 0
+
+    time_int = int(time)
+    bot.timestop2 = time_int
+
+    if time_int < 0:
+        await interaction.response.send_message("**เวลาไม่ถูกต้อง ❌**")
+    else:
+        output = countdown.countdown_fn(time_int)
+        await interaction.response.send_message(output)
+        for i in range(time_int):
+            output = countdown.countdown_fn(time_int)
+            await interaction.edit_original_message(content=output)
+            await asyncio.sleep(1)
+            time_int -= 1
+
+            if bot.timestop2 == -22052603:
+                await interaction.edit_original_message(content="**การนับถอยหลังถูกยกเลิก 🛑**")
+                break
+        if bot.timestop2 != -22052603:
+            try:
+                members = interaction.user.voice.channel.members
+                channel = interaction.user.voice.channel
+            
+                await interaction.edit_original_message(content="**หมดเวลา 🔔**")
+                
+                if bot.member_except == []: # ไม่มีใครยกเว้น
+                    members = interaction.user.voice.channel.members
+                    for member in members:
+                        await member.move_to(None)
+                        people_counter += 1
+
+                    bot.member_except = []
+                    await interaction.followup.send(f"⏏  **ตัดการเชื่อมต่อจำนวน {people_counter} คน จาก `{channel}` สำเร็จแล้ว**")
+
+                else:
+                    members = interaction.user.voice.channel.members
+                    for member in members:
+                        if member not in bot.member_except: # เช็คว่าใครไม่ออก
+                            await member.move_to(None)
+                            people_counter += 1
+
+                    await interaction.followup.send(f"⏏  **ตัดการเชื่อมต่อจำนวน {people_counter} คน จาก `{channel}` สำเร็จแล้ว**")
+                    
+            except:
+                await interaction.edit_original_message(content="**ℹ ต้องอยู่ในช่องเสียงก่อน จึงจะสามารถใช้ได้**")
+
+# Cancel Command
+@bot.command(name="cancel",description="ยกเลิกคำสั่ง", guild=discord.Object(id=720687175611580426))
+@app_commands.choices(command=[
+    app_commands.Choice(name="Countdown",value="cancel_countdown"),
+    app_commands.Choice(name="Countdis",value="cancel_countdis"),
+    ])
+
+async def cancel_def(interaction: discord.Interaction, command: discord.app_commands.Choice[str]):
+    if command.value == "cancel_countdown":
+        bot.timestop1 = -22052603
+        await interaction.response.send_message(content="**🛑 ยกเลิกคำสั่ง Countdown แล้ว**")
+    elif command.value == "cancel_countdis":
+        bot.timestop2 = -22052603
+        await interaction.response.send_message(content="**🛑 ยกเลิกคำสั่ง Countdis แล้ว**")
+
+# Except Countdis
+bot.last_use = [0]
+
+@bot.command(name="except",description="ยกเว้นคำสั่ง Countdis", guild=discord.Object(id=720687175611580426))
+async def except_def(interaction: discord.Interaction):
+    user = interaction.user
+    if user.id not in bot.last_use:
+        bot.member_except.append(user) # คนที่จะไม่ออก
+        bot.last_use.pop(0)
+        bot.last_use.append(user.id)
+        await interaction.response.send_message(content=f"**<@{user.id}> ได้รับการยกเว้น <:Approve:921703512382009354>**")
+    else:
+        bot.member_except.remove(user) # คนที่จะไม่ออก
+        bot.last_use.pop(0)
+        bot.last_use.append(0)
+        await interaction.response.send_message(content=f"**<@{user.id}> ถูกลบออกจากรายการที่ยกเว้น <:Deny:921703523111022642>**")
+
+# Send Message
+@bot.command(name="send",description="ส่งข้อความ", guild=discord.Object(id=720687175611580426))
+async def send_def(interaction: discord.Interaction, channel: discord.TextChannel, *, message: str):
+    if interaction.user.id == 269000561255383040:
+        await interaction.response.send_message(content=f'**"**{message}**"** ถูกส่งไปยัง {channel.mention}')
+        await channel.send(message)
+    else:
+        await interaction.response.send_message(content="**แกไม่มีสิทธิ์!**")
+    
+# TTS
+@bot.command(name="tts",description="แปลงข้อความเป็นเสียง", guild=discord.Object(id=720687175611580426))
+@app_commands.choices(language=[
+    app_commands.Choice(name="Afrikaans (South Africa)",value="af"),
+    app_commands.Choice(name="Arabic",value="ar"),
+    app_commands.Choice(name="Danish (Denmark)",value="da"),
+    app_commands.Choice(name="Dutch (Belgium)",value="nl"),
+    app_commands.Choice(name="English (US)",value="en"),
+    app_commands.Choice(name="Finnish (Finland)",value="fi"),
+    app_commands.Choice(name="French (France)",value="fr"),
+    app_commands.Choice(name="German (Germany)",value="de"),
+    app_commands.Choice(name="Gujarati (India)",value="gu"),
+    app_commands.Choice(name="Hindi (India)",value="hi"),
+    app_commands.Choice(name="Indonesian (Indonesia)",value="id"),
+    app_commands.Choice(name="Italian (Italy)",value="it"),
+    app_commands.Choice(name="Japanese (Japan)",value="ja"),
+    app_commands.Choice(name="Korean (South Korea)",value="ko"),
+    app_commands.Choice(name="Malay (Malaysia)	",value="ms"),
+    app_commands.Choice(name="Portuguese (Brazil)",value="pt"),
+    app_commands.Choice(name="Romanian (Romania)",value="ro"),
+    app_commands.Choice(name="Russian (Russia)",value="ru"),
+    app_commands.Choice(name="Serbian (Serbia)",value="sr"),
+    app_commands.Choice(name="Slovak (Slovakia)",value="sk"),
+    app_commands.Choice(name="Spanish (Spain)",value="es"),
+    app_commands.Choice(name="Swedish (Sweden)",value="sv"),
+    app_commands.Choice(name="Thai (Thailand)",value="th"),
+    app_commands.Choice(name="Ukrainian (Ukraine)",value="uk"),
+    app_commands.Choice(name="Vietnamese (Vietnam)",value="vi"),
+    ])
+    
+async def tts_def(interaction: discord.Interaction,language: discord.app_commands.Choice[str] ,* , text: str):
+    tts = gtts.gTTS(text=text,lang=language.value)
+    tts.save(f'temp/tts_{language.value}.mp3')
+
+    file = discord.File(f'temp/tts_{language.value}.mp3')
+    await interaction.response.send_message(file=file)
 
 Token = os.environ['MiuraTesterToken']
 client.run(Token)
