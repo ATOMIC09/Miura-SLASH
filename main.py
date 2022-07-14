@@ -1,11 +1,6 @@
 import asyncio
-from ctypes import util
-from distutils import extension
-from email import message
-from lzma import FILTER_LZMA1
 from typing import Optional
 import os
-from xmlrpc.client import Fault
 import discord
 from discord import app_commands
 import requests
