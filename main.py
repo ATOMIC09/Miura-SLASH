@@ -1,6 +1,9 @@
 import asyncio
+from datetime import datetime
+from multiprocessing.spawn import import_main_path
 from typing import Optional
 import os
+from cv2 import VideoWriter
 import discord
 from discord import app_commands
 from discord.utils import get
@@ -10,8 +13,9 @@ import gtts
 import pdf2image
 from youtube_dl import YoutubeDL
 import json
+import cv2
 
-from utils import countdown_fn, imageprocess_fn
+from utils import countdown_fn, imageprocess_fn, videoprocess_fn, youtubedl_fn, shorten_url, sectobigger
 from asset.lasereye import lasereye_fn
 
 MY_GUILD = discord.Object(id=720687175611580426)  # replace with your guild id
@@ -79,12 +83,12 @@ async def help(interaction: discord.Interaction):
     image.add_field(name="**📷 สร้าง QR Code**", value="`/image qr`", inline=False)
     image.add_field(name="**↔ ยืดภาพ**", value="`/image wide`", inline=False)
     image.add_field(name="**↔ ยืดดดดดภาพ**", value="`/image ultrawide`", inline=False)
-    image.add_field(name="**📐 ปรับสเกลภาพ**", value="`/image scale`", inline=False)
-    image.add_field(name="**📏 ปรับขนาดภาพ**", value="`/image resize`", inline=False)
-    image.add_field(name="**✏ เขียนข้อความบนภาพ**", value="`/image text`", inline=False)
     image.add_field(name="**👁 Laser Eye**", value="`/image laser`", inline=False)
     image.add_field(name="**🍳 Deep Fryer**", value="`/image deepfry`", inline=False)
     image.add_field(name="**🐶 Petpet Generator**", value="`/image pet`", inline=False)
+    image.add_field(name="**📐 ปรับสเกลภาพ**", value="`/imagemaker scale`", inline=False)
+    image.add_field(name="**📏 ปรับขนาดภาพ**", value="`/imagemaker resize`", inline=False)
+    image.add_field(name="**✏ เขียนข้อความบนภาพ**", value="`/text`", inline=False)
 
     video = discord.Embed(title="**❔ ช่วยเหลือ**",description="╰ *🎥 การประมวลผลวิดีโอ*", color=0x4f4eca)
     video.add_field(name="**📹 ใส่เสียงในภาพ**", value="`/video imgaudio`", inline=False)
@@ -93,7 +97,7 @@ async def help(interaction: discord.Interaction):
 
     download = discord.Embed(title="**❔ ช่วยเหลือ**",description="╰ *📦 ดาวน์โหลดไฟล์*", color=0xff80c9)
     download.add_field(name="**📺 Youtube Downloader**", value="`/download youtube`", inline=False)
-    download.add_field(name="**💿 Audio Downloader**", value="`/download audio`", inline=False)
+    download.add_field(name="**🔊 Audio Downloader**", value="`/download audio`", inline=False)
     download.add_field(name="**🎞 Video Downloader**", value="`/download video`", inline=False)
 
     update = discord.Embed(title="**❔ ช่วยเหลือ**",description="╰ *📌 ประวัติการอัพเดท*", color=0xdcfa80)
@@ -627,25 +631,241 @@ async def image(interaction: discord.Interaction, command: discord.app_commands.
         elif command.value == "laser":
             shutil.copy(f"temp/autosave/{client.last_image}", f"asset/lasereye/input/{client.last_image}")
             lasereye_fn.imagecov(client.last_image,1.5,client.name_only)
+            await interaction.response.send_message("**👁 กำลังสร้าง...**")
 
             if "_laser" in client.name_only:
                 file_name = discord.File(f"asset/lasereye/output/{client.name_only}.png")
+                await interaction.followup.send(file=file_name)
             else:
                 file_name = discord.File(f"asset/lasereye/output/{client.name_only}_laser.png")
+                print(f"asset/lasereye/output/{client.name_only}_laser.png")
+                await interaction.followup.send(file=file_name)
+                
+
+        elif command.value == "deepfry":
+            shutil.copy(f"temp/autosave/{client.last_image}", f"asset/deepfry/deepfryer_input/{client.last_image}")
+            imageprocess_fn.deepfry(f"asset/deepfry/deepfryer_input/{client.last_image}")
+
+            if "_deepfryer" in client.name_only:
+                file_name = discord.File(f"asset/deepfry/deepfryer_output/{client.name_only}.png")
+                await interaction.response.send_message(file=file_name)
+            else:
+                file_name = discord.File(f"asset/deepfry/deepfryer_output/{client.name_only}_deepfryer.png")
+                await interaction.response.send_message(file=file_name)
             
+        elif command.value == "pet":
+            imageprocess_fn.petpet_def(f"temp/autosave/{client.last_image}",client.name_only)
+
+            file_name = discord.File(f"temp/autosave/{client.name_only}_petpet.gif")
             await interaction.response.send_message(file=file_name)
+            await asyncio.sleep(2)
 
 
+################################################# Image Maker #################################################
+@client.tree.command(name="imagemaker",description="📸 การสร้างรูปภาพ")
+@app_commands.choices(command=[
+    app_commands.Choice(name="📐 ปรับสเกลภาพ (ระบุ info เป็นตัวเลข เช่น 500%)",value="scale"), #int %
+    app_commands.Choice(name="📏 ปรับขนาดภาพ (ระบุ info เป็นขนาดของภาพ เช่น 1920x1080)",value="resize")]) #width,height
+    
+@app_commands.describe(command="เลือกคำสั่งที่ต้องการ",info="ใส่ข้อมูลตามคำสั่งที่เลือก")
+async def imagemaker(interaction: discord.Interaction, command: discord.app_commands.Choice[str], info: str):
+    if command.value == "scale":
+        if "%" in info:
+            scale = int(info.replace("%",""))
+        else:
+            scale = int(info)
+        
+        imageprocess_fn.scale(f"temp/autosave/{client.last_image}",scale)
+        file_name = discord.File(f"temp/autosave/{client.last_image}")
+        await interaction.response.send_message(file=file_name)
+
+    elif command.value == "resize":
+        width, height = info.split("x")
+        imageprocess_fn.resize(f"temp/autosave/{client.last_image}",int(width),int(height))
+        file_name = discord.File(f"temp/autosave/{client.last_image}")
+        await interaction.response.send_message(file=file_name)
 
 
+################################################# Text #################################################
+@client.tree.command(name="text",description="🖊️ เขียนข้อความลงบนภาพ")
+@app_commands.choices(font=[
+    app_commands.Choice(name="0 FONT_HERSHEY_SIMPLEX",value="FONT_HERSHEY_SIMPLEX"),
+    app_commands.Choice(name="1 FONT_HERSHEY_PLAIN",value="FONT_HERSHEY_PLAIN"),
+    app_commands.Choice(name="2 FONT_HERSHEY_DUPLEX",value="FONT_HERSHEY_DUPLEX"),
+    app_commands.Choice(name="3 FONT_HERSHEY_COMPLEX",value="FONT_HERSHEY_COMPLEX"),
+    app_commands.Choice(name="4 FONT_HERSHEY_TRIPLEX",value="FONT_HERSHEY_TRIPLEX"),
+    app_commands.Choice(name="5 FONT_HERSHEY_COMPLEX_SMALL",value="FONT_HERSHEY_COMPLEX_SMALL"),
+    app_commands.Choice(name="6 FONT_HERSHEY_SCRIPT_SIMPLEX",value="FONT_HERSHEY_SCRIPT_SIMPLEX"),
+    app_commands.Choice(name="7 FONT_HERSHEY_SCRIPT_COMPLEX",value="FONT_HERSHEY_SCRIPT_COMPLEX"),
+    ])
+
+@app_commands.describe(text="ใส่ข้อความ", font="เลือกฟอนต์ของข้อความ", color='สีของข้อความ เช่น (0, 0, 255) หรือ "แดง" (เรียงสีแบบ BGR)', size="ขนาดของข้อความ เช่น 5", position="ตำแหน่งของข้อความ เช่น floor หรือ 1.2", thickness="ความหนาของข้อความ เช่น 3")
+async def text_def(interaction: discord.Interaction, text: str, font: discord.app_commands.Choice[str], color: Optional[str], size: Optional[int], position: Optional[str], thickness: Optional[int]):
+    if font is None:
+        font = cv2.FONT_HERSHEY_SIMPLEX
+    else:
+        font = getattr(cv2,font.value)
+
+    if color is None:
+        color = (255, 0, 0)
+    if size is None:
+        size = 5
+    if position is None:
+        position = "floor"
+    if thickness is None:
+        thickness = 3
+    
+
+    # กำหนดสี
+    if "red" in color or "Red" in color or "RED" in color  or "แดง" in color :
+        color = (0, 0, 255)
+
+    elif "green" in color or "Green" in color or "GREEN" in color or "เขียว" in color:
+        color = (0, 255, 0)
+
+    elif "blue" in color or "Blue" in color or "BLUE" in color or "น้ำเงิน" in color:
+        color = (255, 0, 0)
+
+    elif "white" in color or "White" in color or "WHITE" in color or "ขาว" in color:
+        color = (255, 255, 255)
+
+    elif "cyan" in color or "Cyan" in color or "CYAN" in color or "เขียวแกมน้ำเงิน" in color or "น้ำเงินแกมเขียว" in color or "เขียวน้ำเงิน" in color or "น้ำเงินเขียว" in color or "ฟ้า" in color:
+        color = (255, 255, 0)
+
+    elif "yellow" in color or "Yellow" in color or "YELLOW" in color or "เหลือง" in color :
+        color = (255, 0, 255)
+
+    elif "black" in color or "Black" in color or "BLACK" in color or "ดำ" in color :
+        color = (0, 0, 0)
+
+    elif "purple" in color or "Purple" in color or "PURPLE" in color or "ม่วง" in color :
+        color = (128, 0, 128)
+
+    elif "gray" in color or "Gray" in color or "GRAY" in color or "เทา" in color :
+        color = (128, 128, 128)
+
+    elif "orange" in color or "Orange" in color or "ORANGE" in color or "ส้ม" in color :
+        color = (0, 128, 255)
+
+    elif "pink" in color or "Pink" in color or "PINK" in color or "ชมพู" in color :
+        color = (255, 128, 255)
+
+    elif "brown" in color or "Brown" in color or "BROWN" in color or "น้ำตาล" in color :
+        color = (0, 75, 150)
+
+    # กำหนดตำแหน่ง
+    if "head" in position or "upper" in position or "up" in position or "top" in position or "บน" in position:
+        position = 6
+
+    elif "center" in position or "medium" in position or "middle" in position or "between" in position or "กลาง" in position:
+        position = 2
+
+    elif "bottom" in position or "lower" in position or "floor" in position or "under" in position or "ล่าง" in position:
+        position = 1.2
+
+    imageprocess_fn.text(f"temp/autosave/{client.last_image}",text,font,color,size,position,thickness)
+    file_name = discord.File(f"temp/autosave/{client.last_image}")
+    await interaction.response.send_message(file=file_name)
 
 
+################################################# Downloader #################################################
+@client.tree.command(name="downloader", description="ดาวน์โหลดวิดีโอจาก Youtube")
+@app_commands.choices(command=[
+    app_commands.Choice(name="📺 Youtube (ดูข้อมูลคลิปและดาวน์โหลดได้)",value="youtube"),
+    app_commands.Choice(name="🔊 Audio (ดาวน์โหลดและส่งไฟล์ในห้องแชท)",value="audio"),
+    app_commands.Choice(name="🎞 Video (ดาวน์โหลดและส่งไฟล์ในห้องแชท)",value="video")])
 
+@app_commands.describe(command="เลือกคำสั่งที่ต้องการ",url="ลิ้งของวิดีโอ")
+async def downloader(interaction: discord.Interaction, command: discord.app_commands.Choice[str], url: str):
+    if command.value == "youtube":
+        await interaction.response.send_message(f"🔎 **กำลังหา** `{url}`")
 
+        # เก็บข้อมูลดิบ
+        title = youtubedl_fn.yt_title(url)
+        ext = youtubedl_fn.yt_ext(url)
+        upload_date = youtubedl_fn.yt_upload_date(url)
+        channel = youtubedl_fn.yt_channel(url)
+        duration = youtubedl_fn.yt_duration(url)
+        view_count = youtubedl_fn.yt_view_count(url)
+        like_count = youtubedl_fn.yt_like_count(url)
+        dislike_count = youtubedl_fn.yt_dislike_count(url)
+        comment_count = youtubedl_fn.yt_comment_count(url)
+        filesize_approx = youtubedl_fn.yt_filesize_approx(url)
 
+        # ข้อมูลสำคัญ
+        videolink = youtubedl_fn.yt_video(url)
+        audiolink = youtubedl_fn.yt_audio(url)
+        thumbnail = youtubedl_fn.yt_thumbnail(url)
 
+        # ข้อมูลสุก
+        videolinknew = shorten_url.shortenmylink(videolink)
+        audiolinknew = shorten_url.shortenmylink(audiolink)
+        durationnew = sectobigger.sec(duration)
+        upload_datenew = sectobigger.datenumbeautiful(upload_date)
 
+        dl = discord.Embed(title = f"**{title}**", color = 0xff80c9)
+        dl.timestamp = interaction.created_at
+        dl.add_field(name="🔐 นามสกุลไฟล์", value=f"`{ext}`", inline=False)
+        dl.add_field(name="🥼 ช่อง", value=f"`{channel}`", inline=False)
+        dl.add_field(name="📆 วันที่อัพโหลด", value=f"`{upload_datenew}`", inline=False)
+        dl.add_field(name="🕒 ระยะเวลา", value=f"`{durationnew}`", inline=False)
+        dl.add_field(name="👀 จำนวนคนดู", value=f"`{view_count} คน`", inline=False)
+        dl.add_field(name="👍🏻 จำนวนคน Like", value=f"`{like_count} คน`", inline=False)
+        dl.add_field(name="👎🏻 จำนวนคน Dislike", value=f"`{dislike_count} คน`", inline=False)
+        dl.add_field(name="💬 จำนวน Comment", value=f"`{comment_count} คน`", inline=False)
+        dl.add_field(name="📦 ขนาดไฟล์", value=f"`{filesize_approx}`", inline=False)
+        dl.set_image(url=thumbnail)
 
+        url_view = discord.ui.View()
+        url_view.add_item(discord.ui.Button(label='Video',emoji="🎬" , style=discord.ButtonStyle.url, url=videolinknew))
+        url_view.add_item(discord.ui.Button(label='Audio',emoji="🔊" , style=discord.ButtonStyle.url, url=audiolinknew))
+
+        await interaction.edit_original_message(content="",embed=dl,view=url_view)
+
+    elif command.value == "audio":
+        clipname = youtubedl_fn.yt_audio_get_clip_name(url)
+        await interaction.response.send_message(f"📥 **กำลังดาวน์โหลด** `{clipname}`")
+        youtubedl_fn.yt_audio_dir(url)
+
+        await interaction.edit_original_message(content=f"✅ **ดาวน์โหลดแล้ว** `{clipname}`")
+        file=discord.File(f'temp/audio/{clipname}')
+        await interaction.followup.send(file=file)
+
+    elif command.value == "video":
+        clipname = youtubedl_fn.yt_video_get_clip_name(url)
+        await interaction.response.send_message(f"📥 **กำลังดาวน์โหลด** `{clipname}`")
+        youtubedl_fn.yt_video_dir(url)
+
+        await interaction.edit_original_message(content=f"✅ **ดาวน์โหลดแล้ว** `{clipname}`")
+        
+        try: # No compression
+            await interaction.followup.send(file=discord.File(f"temp/video/{clipname}"))
+            
+        except: # If can't send, compress the file
+            size = videoprocess_fn.getfilesize(f"temp/video/{clipname}")
+            
+            # Ask for compression
+            prompt_view = discord.ui.View()
+            prompt_view.add_item(discord.ui.Button(label='ลองบีบอัดไฟล์', style=discord.ButtonStyle.green, custom_id="compress"))
+
+            async def button_callback(interaction):
+                await interaction.edit_original_message(content=f"**🗜 กำลังบีบอัด...** `({size})`")
+
+                # Video Compression (เฉพาะโมดูล compressvideo ที่ไม่ต้องระบุ path)
+                stat = videoprocess_fn.compressvideo(clipname)[0]
+                compressedclipname = videoprocess_fn.compressvideo(clipname)[1]
+                await interaction.edit_original_message(content=stat)
+
+                try: # Send again
+                    await interaction.followup.send(file=discord.File(f'{compressedclipname}.mp4'))
+                
+                except: # Can't send again
+                    size_compresesed = videoprocess_fn.getfilesize(f'{compressedclipname}.mp4')
+                    await interaction.edit_original_message(content=f"❌ **ไฟล์มีขนาดใหญ่เกินไป** `{size_compresesed}`**, ไม่สามารถบีบอัดได้มากกว่านี้**")
+
+            prompt_view.callback = button_callback
+
+            await interaction.edit_original_message(content=f"❌ **ไฟล์มีขนาดใหญ่เกินไป** `{size}`**, ต้องการบีบอัดไฟล์หรือไม่?**", view=prompt_view)
 
 
 
@@ -692,17 +912,6 @@ async def imginfo(interaction: discord.Interaction, message: discord.Message):
 
 
 
-'''
-@client.tree.command(name="image",description="🖊️ ข้อความและการประมวลผลภาพ")
-@app_commands.choices(command=[
-    app_commands.Choice(name="📐 ปรับสเกลภาพ (ระบุ info เป็นตัวเลข %)",value="scale"), #int %
-    app_commands.Choice(name="📏 ปรับขนาดภาพ",value="resize"), #width,height
-    app_commands.Choice(name="✏ เขียนข้อความบนภาพ",value="text"), #[ข้อความ] | [สี] | [ขนาด] | [ตำแหน่ง] | [ความหนา]
-    ])
-
-@app_commands.describe(command="เลือกคำสั่งที่ต้องการ",info="ใส่ข้อมูลตามคำสั่งที่เลือก")
-async def image(interaction: discord.Interaction, command: discord.app_commands.Choice[str], info: Optional[str]):
-'''
 
 
 

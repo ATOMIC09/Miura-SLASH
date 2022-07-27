@@ -2,6 +2,8 @@ import cv2
 import numpy as np
 import qrcode
 import math
+from utils import deepfryer_fn
+from petpetgif import petpet
 
 def imginfo_channel(path):
     image = cv2.imread(path,cv2.IMREAD_UNCHANGED)
@@ -134,3 +136,41 @@ def wide(path,stretch):
 
     res = cv2.resize(img_RGBA, size)
     cv2.imwrite(path,res)
+
+def deepfry(path):
+    imageNormal = cv2.imread(path)
+    deepfryer_fn.printFolders("asset/deepfry/deepfryer_input", "asset/deepfry/deepfryer_output")
+    deepfryer_fn.processArgs()
+    deepfryer_fn.fryImage(path)
+    deepfryer_fn.badPosterize(imageNormal)
+
+    if "_deepfryer" in path:
+        deepfryer_fn.folderCheck("asset/deepfry/deepfryer_input", "asset/deepfry/deepfryer_output", '.png')
+    else:
+        deepfryer_fn.folderCheck("asset/deepfry/deepfryer_input", "asset/deepfry/deepfryer_output", '_deepfryer.png')
+
+def petpet_def(path,filename):
+    petpet.make(path, f'temp/autosave/{filename}_petpet.gif')
+
+def scale(path,scale):
+    image = cv2.imread(path)
+    height, width, channels = image.shape
+    size = (math.ceil(width*scale/100), math.ceil(height*scale/100))
+    res = cv2.resize(image, size)
+    cv2.imwrite(path,res)
+
+def resize(path,width,height):
+    img = cv2.imread(path)
+    resized = cv2.resize(img, (width, height))
+    cv2.imwrite(path,resized)
+
+def text(path,text,font,color,size,position,thickness):
+    img = cv2.imread(path)
+    
+    # กำหนดตำแหน่งให้อยู่ตรงกลาง
+    textsize = (cv2.getTextSize(text, font, size, thickness)[0])
+    textX = int((img.shape[1] - textsize[0]) / 2)
+    textY = int((img.shape[0] + textsize[1]) / position)
+
+    cv2.putText(img, text, (textX, textY), font, size, color, thickness)
+    cv2.imwrite(path,img)
