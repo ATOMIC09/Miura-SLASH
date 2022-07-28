@@ -1,8 +1,10 @@
 import asyncio
 from datetime import datetime
+from email import message
 from multiprocessing.spawn import import_main_path
 from typing import Optional
 import os
+from urllib import response
 from cv2 import VideoWriter
 import discord
 from discord import app_commands
@@ -15,7 +17,7 @@ from youtube_dl import YoutubeDL
 import json
 import cv2
 
-from utils import countdown_fn, imageprocess_fn, videoprocess_fn, youtubedl_fn, shorten_url, sectobigger, audio2video
+from utils import countdown_fn, imageprocess_fn, videoprocess_fn, youtubedl_fn, shorten_url, sectobigger, audio2video, earrape_detector, sleeponkeyboard
 from asset.lasereye import lasereye_fn
 
 MY_GUILD = discord.Object(id=720687175611580426)  # replace with your guild id
@@ -598,7 +600,7 @@ async def image(interaction: discord.Interaction, command: discord.app_commands.
             search.timestamp = interaction.created_at
 
             url_view = discord.ui.View()
-            url_view.add_item(discord.ui.Button(label='Result',emoji="🔎",style=discord.ButtonStyle.url, url=img_search_url))
+            url_view.add_item(discord.ui.Button(label='ผลการค้นหา',emoji="🔎",style=discord.ButtonStyle.url, url=img_search_url))
 
             await interaction.response.send_message(embed=search, view=url_view)
 
@@ -894,36 +896,6 @@ async def downloader(interaction: discord.Interaction, command: discord.app_comm
                 await interaction.edit_original_message(content=f"❌ **ไฟล์มีขนาดใหญ่เกินไป** `{size}`**, ต้องการบีบอัดไฟล์หรือไม่?**", view=compressview)
 
 
-################# COMPRESSION #################
-async def startcompress(interaction,clipname):
-    size = videoprocess_fn.getfilesize(f"temp/video/{clipname}")
-    
-    # Ask for compression
-    compress_button = discord.ui.Button(label='ลองบีบอัดไฟล์',emoji="🗜", style=discord.ButtonStyle.primary, custom_id="compress")
-
-    async def compress(interaction):
-        await interaction.response.edit_message(content=f"**🗜 กำลังบีบอัด...** `({size})`",view=None)
-
-        # Video Compression (เฉพาะโมดูล compressvideo ที่ไม่ต้องระบุ path)
-        stat = videoprocess_fn.compressvideo(clipname)[0]
-        compressedclipname = videoprocess_fn.compressvideo(clipname)[1]
-        await interaction.edit_original_message(content=stat)
-
-        try: # Send again
-            await interaction.followup.send(file=discord.File(f'{compressedclipname}.mp4'))
-        
-        except: # Can't send again
-            size_compresesed = videoprocess_fn.getfilesize(f'{compressedclipname}.mp4')
-            await interaction.edit_original_message(content=f"❌ **ไฟล์มีขนาดใหญ่เกินไป** `{size_compresesed}`**, ไม่สามารถบีบอัดได้มากกว่านี้**")
-
-    compress_button.callback = compress
-
-    compressview = discord.ui.View()
-    compressview.add_item(compress_button)
-
-    await interaction.edit_original_message(content=f"❌ **ไฟล์มีขนาดใหญ่เกินไป** `{size}`**, ต้องการบีบอัดไฟล์หรือไม่?**", view=compressview)
-##############################################
-
 
 ################################################# Video Process #################################################
 @client.tree.command(name="video", description="🎥 การประมวลผลวิดีโอ")
@@ -996,18 +968,16 @@ async def downloader(interaction: discord.Interaction, command: discord.app_comm
         async def confirm_callback(interaction):
             await interaction.response.edit_message(content="**🎬 กำลังสร้าง...**", view=None)
             output_path, output_name = videoprocess_fn.videomixer(clip1, clip2)
-            await interaction.followup.send(content="**✅ สร้างเสร็จแล้ว**")
+            await interaction.edit_original_message(content="**✅ สร้างเสร็จแล้ว**")
 
             try:
                 await interaction.followup.send(file=discord.File(output_path))
             except:
-                print("Compresing")
-                startcompress(interaction, output_name)
-            
-
+                size = videoprocess_fn.getfilesize(output_path)
+                await interaction.edit_original_message(content=f"❌ **ไฟล์มีขนาดใหญ่เกินไป** `{size}`")
         
         async def deny_callback(interaction):
-            await interaction.response.edit_message(content="**❌ ยกเลิกแล้ว**")
+            await interaction.response.edit_message(content="**❌ ยกเลิกแล้ว**", view=None)
             pass
 
         confirm_button.callback = confirm_callback
@@ -1018,24 +988,45 @@ async def downloader(interaction: discord.Interaction, command: discord.app_comm
 
         await interaction.followup.send(content=f"**ต้องการจะต่อคลิป** `{clip1}` **กับ** `{clip2}` **ใช่หรือไม่?**",view=view)
         
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+################################################# Role Assignment #################################################
+@client.tree.command(name="role", description="🪄 เลือกบทบาท")
+@app_commands.choices(role=[
+    app_commands.Choice(name="Electricity & Engineering",value="role1"),
+    app_commands.Choice(name="IT & COMPUTER",value="role2"),
+    app_commands.Choice(name="Media & Arts",value="role3"),
+    app_commands.Choice(name="Law & Politics",value="role4"),
+    app_commands.Choice(name="Physician & Science",value="role5"),
+    app_commands.Choice(name="Business Administration",value="role6"),
+    app_commands.Choice(name="Liberal Arts & Humanities",value="role7"),
+    app_commands.Choice(name="Optometry",value="role8"),
+    app_commands.Choice(name="Economics",value="role9"),
+    app_commands.Choice(name="The First Order",value="role10"),
+    app_commands.Choice(name="The Second Order",value="role11"),
+    app_commands.Choice(name="The Third Order",value="role12"),
+    app_commands.Choice(name="The Secret Order",value="role13"),
+    app_commands.Choice(name="President",value="role14"),
+    app_commands.Choice(name="Programmer",value="role15"),
+    app_commands.Choice(name="Game Developer",value="role16"),
+    app_commands.Choice(name="Bot Developer",value="role17"),
+    app_commands.Choice(name=".",value="role18"),
 
 
+    
+    
+    
+    ])
 
+@app_commands.describe(role="เลือกคำสั่งที่ต้องการ")
+async def downloader(interaction: discord.Interaction, role: discord.app_commands.Choice[str]):
+    if role.value == "role1":
 
-
-
+        activity = interaction.user.activity
+        if activity == None:
+            await interaction.response.send_message("None")
+        else:    
+            await interaction.response.send_message(activity.name)
+        
 
 
 
@@ -1050,7 +1041,7 @@ async def downloader(interaction: discord.Interaction, command: discord.app_comm
 
 
 ################################################# Image Message Context #################################################
-@client.tree.context_menu(name='🔦 คุณสมบัติรูปภาพ')
+@client.tree.context_menu(name='ดูคุณสมบัติรูปภาพ')
 async def imginfo(interaction: discord.Interaction, message: discord.Message):
     channel = imageprocess_fn.imginfo_channel(f"temp/autosave/{client.last_image}")
     height = imageprocess_fn.imginfo_height(f"temp/autosave/{client.last_image}")
@@ -1077,33 +1068,34 @@ async def imginfo(interaction: discord.Interaction, message: discord.Message):
     info.add_field(name="🪄 ความละเอียด", value=f"`{width}x{height}`", inline=False)
     await interaction.response.send_message(embed=info)
 
+@client.tree.context_menu(name='แปลคำเพี้ยน')
+async def whenyousleeponkeyboard(interaction: discord.Interaction, message: discord.Message):
+    try:
+        output = sleeponkeyboard.entoth(message.content)
+    except:
+        output = sleeponkeyboard.thtoen(message.content)
+    
+    await interaction.response.send_message(output)
 
+@client.tree.context_menu(name='รายงานข้อความนี้กับแอดมิน')
+async def report_message(interaction: discord.Interaction, message: discord.Message):
 
+    await interaction.response.send_message(
+        f'ขอบคุณ {message.author.mention} ที่รายงานข้อความกับแอดมิน', ephemeral=True)
 
+    log_channel = interaction.guild.get_channel(929670988092825630)
 
+    embed = discord.Embed(title='Reported Message')
+    if message.content:
+        embed.description = message.content
 
+    embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
+    embed.timestamp = message.created_at
 
+    url_view = discord.ui.View()
+    url_view.add_item(discord.ui.Button(label='Go to Message', style=discord.ButtonStyle.url, url=message.jump_url))
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    await log_channel.send(embed=embed, view=url_view)
 
 
 ################################################# Cancel #################################################
@@ -1122,111 +1114,204 @@ async def cancel(interaction: discord.Interaction, command: discord.app_commands
         await interaction.response.send_message(content="**🛑 ยกเลิกคำสั่ง Countdis แล้ว**")
 
 
-################################################# Auto Save Attachments with name #################################################
+################################################# On_Message Event #################################################
 @client.event
 async def on_message(message):
-    if message.author.id != "907247505346035752":
-        extension = ""
-        url = ""
+    # Auto Save Attachments with name
+    extension = ""
+    url = ""
 
-        try:
-            attachment_url = message.attachments[0]
-            url = str(attachment_url.url)
-            splitedbydot = url.split(".")
-            splitedbyslash = splitedbydot[len(splitedbydot)-2].split("/")
-            name = splitedbyslash[len(splitedbyslash)-1]
-            extension = splitedbydot[len(splitedbydot)-1]
+    try:
+        attachment_url = message.attachments[0]
+        url = str(attachment_url.url)
+        splitedbydot = url.split(".")
+        splitedbyslash = splitedbydot[len(splitedbydot)-2].split("/")
+        name = splitedbyslash[len(splitedbyslash)-1]
+        extension = splitedbydot[len(splitedbydot)-1]
 
-            FileName = name+"."+extension
-            client.name_only = name
-            r = requests.get(url, stream=True)
-            with open(FileName, 'wb') as out_file:
-                shutil.copyfileobj(r.raw, out_file)
-            shutil.move(FileName, f"temp/autosave/{FileName}")
-            await client.change_presence(activity=discord.Game(name=f"💾 {FileName}"))
-            print('Saving : ' + FileName)
+        FileName = name+"."+extension
+        client.name_only = name
+        r = requests.get(url, stream=True)
+        with open(FileName, 'wb') as out_file:
+            shutil.copyfileobj(r.raw, out_file)
+        shutil.move(FileName, f"temp/autosave/{FileName}")
+        await client.change_presence(activity=discord.Game(name=f"💾 {FileName}"))
+        print('Saving : ' + FileName)
 
-            if extension == "png" or extension == "jpg" or extension == "jpeg" or extension == "webp":
-                client.last_image = FileName
-                client.last_image_url = url
-                print(f"Saved {FileName} to Last Image")
-            elif extension == "mp4" or extension == "webm" or extension == "mkv" or extension == "avi":
-                client.last_video = FileName
-                client.last_video_url = url
-                print(f"Saved {FileName} to Last Video")
-            elif extension == "mp3" or extension == "wav" or extension == "m4a":
-                client.last_audio = FileName
-                client.last_audio_url = url
-                print(f"Saved {FileName} to Last Audio")
-            elif extension == "pdf":
-                client.last_pdf = FileName
-                client.last_pdf_url = url
-                print(f"Saved {FileName} to Last PDF")
+        if extension == "png" or extension == "jpg" or extension == "jpeg" or extension == "webp":
+            client.last_image = FileName
+            client.last_image_url = url
+            print(f"Saved {FileName} to Last Image")
+        elif extension == "mp4" or extension == "webm" or extension == "mkv" or extension == "avi" or extension == "mov" or extension == "flv" or extension == "wmv" or extension == "mpg" or extension == "mpeg":
+            client.last_video = FileName
+            client.last_video_url = url
+            print(f"Saved {FileName} to Last Video")
+        elif extension == "mp3" or extension == "wav" or extension == "m4a" or extension == "flac" or extension == "ogg":
+            client.last_audio = FileName
+            client.last_audio_url = url
+            print(f"Saved {FileName} to Last Audio")
+        elif extension == "pdf":
+            client.last_pdf = FileName
+            client.last_pdf_url = url
+            print(f"Saved {FileName} to Last PDF")
+    
+    except:
+        print("No attachment")
+
+    # Earrape Detector
+    decisionFunctionMark = lambda loudness, maxamp: maxamp > min(110, ((loudness + 1) ** 2 * 0.1 + 3) / 0.5 * -(loudness + 1))
+    decisionFunctionWarning = lambda loudness, maxamp: maxamp > min(110, ((loudness - 1) ** 2 * 0.1 + 2) / 0.3 * -(loudness - 1) + 25)
+
+    check_files = ("mp4", "mov", "mp3", "flac", "wav", "ogg", "m4a")
+
+    if len(message.attachments) > 0:
+        for attachment in message.attachments:
+            if attachment.filename.endswith(check_files):
+                data = await attachment.read()
+                loudness, maxamp, time = earrape_detector.check_audio(data)
+                if decisionFunctionWarning(loudness, maxamp):
+                    await message.add_reaction("🔊")
+                    await message.add_reaction("⚠️")
+
+                elif decisionFunctionMark(loudness, maxamp):
+                    await message.add_reaction("🔊")
+                    await message.add_reaction("⚡")
+
+    # Scamming Protection
+    if message.author.id != 907247505346035752:
+        keyword = ""
+        channel_admin = client.get_channel(929670988092825630)
+        member = message.author
+        role = discord.utils.get(message.guild.roles, name="⚠️ HACKED ⚠️")
+
+        if "http" in message.content.lower():
+            keyword += "`http` "
+
+        if "free" in message.content.lower():
+            keyword += "`Free` "
+
+        if "nitro" in message.content.lower():
+            keyword += "`Nitro` "
+            
+        if "@everyone" in message.content.lower():
+            keyword += "`@everyone` "
+
+        if "@here" in message.content.lower():
+            keyword += "`@here` "
+
+        if "nitro" in message.content.lower() and "free" in message.content.lower() and "http" in message.content.lower():
+            await member.add_roles(role)
+            await message.delete()
+            
+            anti = discord.Embed(title = "⚠ **Security Alert**", color = 0xFF3C3C)
+            anti.add_field(name=f"🔑 **Keyword detected**", value=keyword)
+            anti.add_field(name=f"<:windows_user_white:931065351301656626> **Sent by**", value=f"<@{message.author.id}>")
+            anti.add_field(name=f"ℹ **Status**", value=f"*`Deleted`*")
+            await channel_admin.send(embed = anti)
+
+            user = discord.Embed(title = "⚠️ **Scamming Detected** ⚠️", color = 0xFF0000)
+            user.description = "คุ ณ เ ก ม แ ล้ ว 🗿"
+            user.add_field(name=f"🔑 **Keyword detected**", value=keyword)
+            user.add_field(name=f"<:windows_user_white:931065351301656626> **Sent by**", value=f"<@{member.id}>")
+            user.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
+            await message.channel.send(embed = user)
+
+        elif "free" in message.content.lower() and "@everyone" in message.content.lower() or "@here" in message.content.lower():
+            anti = discord.Embed(title = "⚠ **Security Alert**", color = 0xFF3C3C)
+            anti.add_field(name=f"🔑 **Keyword detected**", value=keyword)
+            anti.add_field(name=f"<:windows_user_white:931065351301656626> **Sent by**", value=f"<@{message.author.id}>")
+            anti.add_field(name=f"ℹ **Status**", value=f"*`Not yet deleted`*")
+            url = f"https://discord.com/channels/{message.guild.id}/{message.channel.id}/{message.id}"
+
+            url_view = discord.ui.View()
+            url_view.add_item(discord.ui.Button(label='Go to Message', style=discord.ButtonStyle.url, url=url))
+
+            await channel_admin.send(embed = anti,view=url_view)
+
+        elif "nitro" in message.content.lower() and "@everyone" in message.content.lower() or "@here" in message.content.lower():
+            await message.add_reaction("⚠")
+
+            anti = discord.Embed(title = "⚠ **Security Alert**", color = 0xFF3C3C)
+            anti.add_field(name=f"🔑 **Keyword detected**", value=keyword)
+            anti.add_field(name=f"<:windows_user_white:931065351301656626> **Sent by**", value=f"<@{message.author.id}>")
+            anti.add_field(name=f"ℹ **Status**", value=f"*`Not yet deleted`*")
+            url = f"https://discord.com/channels/{message.guild.id}/{message.channel.id}/{message.id}"
+
+            url_view = discord.ui.View()
+            url_view.add_item(discord.ui.Button(label='Go to Message', style=discord.ButtonStyle.url, url=url))
+
+            await channel_admin.send(embed = anti,view=url_view)
+
+        elif "nitro" in message.content.lower() and "free" in message.content.lower():
+            await message.add_reaction("⚠")
+            
+            anti = discord.Embed(title = "⚠ **Security Alert**", color = 0xFF3C3C)
+            anti.add_field(name=f"🔑 **Keyword detected**", value=keyword)
+            anti.add_field(name=f"<:windows_user_white:931065351301656626> **Sent by**", value=f"<@{message.author.id}>")
+            anti.add_field(name=f"ℹ **Status**", value=f"*`Not yet deleted`*")
+            url = f"https://discord.com/channels/{message.guild.id}/{message.channel.id}/{message.id}"
+            
+            url_view = discord.ui.View()
+            url_view.add_item(discord.ui.Button(label='Go to Message', style=discord.ButtonStyle.url, url=url))
+
+            await channel_admin.send(embed = anti,view=url_view)
+
+        elif "http" in message.content.lower() and "free" in message.content.lower():    
+            anti = discord.Embed(title = "⚠ **Security Alert**", color = 0xFF3C3C)
+            anti.add_field(name=f"🔑 **Keyword detected**", value=keyword)
+            anti.add_field(name=f"<:windows_user_white:931065351301656626> **Sent by**", value=f"<@{message.author.id}>")
+            anti.add_field(name=f"ℹ **Status**", value=f"*`Not yet deleted`*")
+            url = f"https://discord.com/channels/{message.guild.id}/{message.channel.id}/{message.id}"
+            
+            url_view = discord.ui.View()
+            url_view.add_item(discord.ui.Button(label='Go to Message', style=discord.ButtonStyle.url, url=url))
+
+            await channel_admin.send(embed = anti,view=url_view)
+
+
+@client.event
+async def on_member_join(person):
+    if person.bot == False:
+        new_member = 851081137093738576 #GGWP: 727555789056639027 TEST: 851081137093738576
+        dj = 781371092899856404
+        visitor = 1002230382340603964 #GGWP: 1002231984954818633 TEST: 1002230382340603964
+
+        await person.add_roles(person.guild.get_role(visitor))
+
+        welcome = discord.Embed(title = "🎉 **Welcome** 🎉", color = 0xEA8EEF)
+        welcome.description = f"ยินดีต้อนรับ {person.mention} สู่กลุ่ม {person.guild.name}"
+        welcome.set_thumbnail(url = person.display_avatar.url)
+        welcome.add_field(name="กฎ", value="• ให้เกียรติกันด้วย\n*(จริง ๆ ไม่มีหรอกนะกฎที่ตายตัวน่ะ)*")
+        welcome.add_field(name="สิ่งที่ต้องทำ", value="• กดยอมรับ *(แค่นั้นจริง ๆ )*")
+        welcome.add_field(name="ที่นี่มีอะไร", value="จุดเริ่มต้นจากการสร้างกลุ่มเพื่อเล่นเกม แต่กลายเป็นสังคมกลุ่มเพื่อนที่ทำได้ทุกอย่าง\n• คุยไร้สาระหรือจะมีสาระก็ได้\n• สร้างโปรเจกต์อะไรก็ได้\n• เล่นเกม\n• เล่นมีม\n• สร้างเกม\n• ปล่อยวาร์ป 👀")
         
-        except:
-            print("No attachment")
-
+        agree_button = discord.ui.Button(label='ยอมรับเข้ากลุ่ม', style=discord.ButtonStyle.primary, emoji="<:Approve:921703512382009354>")
         
+        async def agreed(interaction):
+            if interaction.user == person:
+                await interaction.user.remove_roles(interaction.user.guild.get_role(visitor))
+                await interaction.user.add_roles(interaction.user.guild.get_role(new_member))
+                try:
+                    await interaction.user.add_roles(interaction.user.guild.get_role(dj))
+                except:
+                    print("No DJ Role")
+                await interaction.response.edit_message(embed=None, content=f"{interaction.user.mention} **ยอมรับเข้ากลุ่มแล้ว** <:Approve:921703512382009354>", view=None)
+            else: 
+                await interaction.response.send_message("ยุ่งว่ะครับ", ephemeral=True)
+
+        agree_button.callback = agreed
+        view = discord.ui.View()
+        view.add_item(agree_button)
+
+        channel = client.get_channel(721034213264195715) #GGWP: 452857558596714509 TEST: 721034213264195715
+        await channel.send(embed=welcome,view=view)
+
+    else:
+        print("Bot joined the server")
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-# To make an argument optional, you can either give it a supported default argument
-# or you can mark it as Optional from the typing standard library. This example does both.
-@client.tree.command()
-@app_commands.describe(member='The member you want to get the joined date from; defaults to the user who uses the command')
-async def joined(interaction: discord.Interaction, member: Optional[discord.Member] = None):
-    """Says when a member joined."""
-    # If no member is explicitly provided then we use the command user here
-    member = member or interaction.user
-
-    # The format_dt function formats the date time into a human readable representation in the official client
-    await interaction.response.send_message(f'{member} joined {discord.utils.format_dt(member.joined_at)}')
-
-
-# A Context Menu command is an app command that can be run on a member or on a message by
-# accessing a menu within the client, usually via right clicking.
-# It always takes an interaction as its first parameter and a Member or Message as its second parameter.
-
-# This context menu command only works on members
-@client.tree.context_menu(name='Show Join Date')
-async def show_join_date(interaction: discord.Interaction, member: discord.Member):
-    # The format_dt function formats the date time into a human readable representation in the official client
-    await interaction.response.send_message(f'{member} joined at {discord.utils.format_dt(member.joined_at)}')
-
-
-# This context menu command only works on messages
-@client.tree.context_menu(name='Report to Moderators')
-async def report_message(interaction: discord.Interaction, message: discord.Message):
-    # We're sending this response message with ephemeral=True, so only the command executor can see it
-    await interaction.response.send_message(
-        f'Thanks for reporting this message by {message.author.mention} to our moderators.', ephemeral=True
-    )
-
-    # Handle report by sending it into a log channel
-    log_channel = interaction.guild.get_channel(720687176115027970)  # replace with your channel id
-
-    embed = discord.Embed(title='Reported Message')
-    if message.content:
-        embed.description = message.content
-
-    embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
-    embed.timestamp = message.created_at
-
-    url_view = discord.ui.View()
-    url_view.add_item(discord.ui.Button(label='Go to Message', style=discord.ButtonStyle.url, url=message.jump_url))
-
-    await log_channel.send(embed=embed, view=url_view)
 
 #อย่าลืมทำ Auto Delete ของ Auto Save
 Token = os.environ['MiuraTesterToken']
