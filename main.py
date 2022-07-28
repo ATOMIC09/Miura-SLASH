@@ -15,7 +15,7 @@ from youtube_dl import YoutubeDL
 import json
 import cv2
 
-from utils import countdown_fn, imageprocess_fn, videoprocess_fn, youtubedl_fn, shorten_url, sectobigger
+from utils import countdown_fn, imageprocess_fn, videoprocess_fn, youtubedl_fn, shorten_url, sectobigger, audio2video
 from asset.lasereye import lasereye_fn
 
 MY_GUILD = discord.Object(id=720687175611580426)  # replace with your guild id
@@ -408,7 +408,7 @@ async def music(interaction: discord.Interaction, command: discord.app_commands.
         URL = info['url']
         client.queue_notdel.append(filename)
         client.queue_name.append(filename)
-        await interaction.edit_original_message(content=f"📼 **พบ** `{filename}`")
+        await interaction.edit_original_message(content=f"👀 **พบ** `{filename}`")
         
         if voice.is_playing() == 1:
             await asyncio.sleep(2)
@@ -529,7 +529,7 @@ async def music(interaction: discord.Interaction, command: discord.app_commands.
         await interaction.response.send_message("🆑 **ล้างคิวแล้ว**")
 
 
-################################################# Image #################################################
+################################################# Image Process #################################################
 @client.tree.command(name="image",description="🖼️ รูปภาพและการประมวลผลภาพ")
 @app_commands.choices(command=[
     app_commands.Choice(name="🔦 ตรวจสอบคุณสมบัติ",value="info"),
@@ -773,7 +773,7 @@ async def text_def(interaction: discord.Interaction, text: str, font: discord.ap
 @app_commands.choices(command=[
     app_commands.Choice(name="📺 Youtube (ดูข้อมูลคลิปและดาวน์โหลดได้)",value="youtube"),
     app_commands.Choice(name="🔊 Audio (ดาวน์โหลดและส่งไฟล์ในห้องแชท)",value="audio"),
-    app_commands.Choice(name="🎞 Video (ดาวน์โหลดและส่งไฟล์ในห้องแชท)",value="video")])
+    app_commands.Choice(name="🎞 Video (ไม่ควรโหลดคลิปที่มีขนาดใหญ่ เพราะมีความเร็วที่ช้ามาก ๆ )",value="video")])
 
 @app_commands.describe(command="เลือกคำสั่งที่ต้องการ",url="ลิ้งของวิดีโอ")
 async def downloader(interaction: discord.Interaction, command: discord.app_commands.Choice[str], url: str):
@@ -832,40 +832,207 @@ async def downloader(interaction: discord.Interaction, command: discord.app_comm
         await interaction.followup.send(file=file)
 
     elif command.value == "video":
+        await interaction.response.send_message(f"🔎 **กำลังหา** `{url}`")
         clipname = youtubedl_fn.yt_video_get_clip_name(url)
-        await interaction.response.send_message(f"📥 **กำลังดาวน์โหลด** `{clipname}`")
-        youtubedl_fn.yt_video_dir(url)
 
-        await interaction.edit_original_message(content=f"✅ **ดาวน์โหลดแล้ว** `{clipname}`")
+        await interaction.edit_original_message(content=f"👀 **พบ** `{clipname}`")
+        await asyncio.sleep(2)
+
+        hd = discord.ui.Button(label='คุณภาพสูง',emoji="<:FullHD:1001878040424480828>", style=discord.ButtonStyle.green, custom_id="hd")
+        sd = discord.ui.Button(label='คุณภาพต่ำ',emoji="<:Not4K:1001877314390462624>", style=discord.ButtonStyle.red, custom_id="sd")
         
-        try: # No compression
-            await interaction.followup.send(file=discord.File(f"temp/video/{clipname}"))
-            
-        except: # If can't send, compress the file
-            size = videoprocess_fn.getfilesize(f"temp/video/{clipname}")
-            
-            # Ask for compression
-            prompt_view = discord.ui.View()
-            prompt_view.add_item(discord.ui.Button(label='ลองบีบอัดไฟล์', style=discord.ButtonStyle.green, custom_id="compress"))
+        async def hd_callback(interaction):
+            await interaction.response.edit_message(content=f"📥 **กำลังดาวน์โหลด** `{clipname}` **ในโหมดคุณภาพสูง**", view=None)
+            youtubedl_fn.yt_video_dir_best(url)
+            await interaction.edit_original_message(content=f"✅ **ดาวน์โหลดแล้ว** `{clipname}`")
+            await startcompress(clipname)
+        
+        async def sd_callback(interaction):
+            await interaction.response.edit_message(content=f"📥 **กำลังดาวน์โหลด** `{clipname}` **ในโหมดคุณภาพต่ำ**", view=None)
+            youtubedl_fn.yt_video_dir_worst(url)
+            await interaction.edit_original_message(content=f"✅ **ดาวน์โหลดแล้ว** `{clipname}`")
+            await startcompress(clipname)
 
-            async def button_callback(interaction):
-                await interaction.edit_original_message(content=f"**🗜 กำลังบีบอัด...** `({size})`")
+        hd.callback = hd_callback
+        sd.callback = sd_callback
+        view = discord.ui.View()
+        view.add_item(hd)
+        view.add_item(sd)
+        await interaction.edit_original_message(content="❔ **โปรดเลือกคุณภาพของคลิปวิดีโอ**",view=view)
 
-                # Video Compression (เฉพาะโมดูล compressvideo ที่ไม่ต้องระบุ path)
-                stat = videoprocess_fn.compressvideo(clipname)[0]
-                compressedclipname = videoprocess_fn.compressvideo(clipname)[1]
-                await interaction.edit_original_message(content=stat)
-
-                try: # Send again
-                    await interaction.followup.send(file=discord.File(f'{compressedclipname}.mp4'))
+        async def startcompress(clipname):
+            # Send the video
+            try: # No compression
+                await interaction.followup.send(file=discord.File(f"temp/video/{clipname}"))
                 
-                except: # Can't send again
-                    size_compresesed = videoprocess_fn.getfilesize(f'{compressedclipname}.mp4')
-                    await interaction.edit_original_message(content=f"❌ **ไฟล์มีขนาดใหญ่เกินไป** `{size_compresesed}`**, ไม่สามารถบีบอัดได้มากกว่านี้**")
+            except: # If can't send, compress the file
+                size = videoprocess_fn.getfilesize(f"temp/video/{clipname}")
+                
+                # Ask for compression
+                compress_button = discord.ui.Button(label='ลองบีบอัดไฟล์',emoji="🗜", style=discord.ButtonStyle.primary, custom_id="compress")
 
-            prompt_view.callback = button_callback
+                async def compress(interaction):
+                    await interaction.response.edit_message(content=f"**🗜 กำลังบีบอัด...** `({size})`",view=None)
 
-            await interaction.edit_original_message(content=f"❌ **ไฟล์มีขนาดใหญ่เกินไป** `{size}`**, ต้องการบีบอัดไฟล์หรือไม่?**", view=prompt_view)
+                    # Video Compression (เฉพาะโมดูล compressvideo ที่ไม่ต้องระบุ path)
+                    stat = videoprocess_fn.compressvideo(clipname)[0]
+                    compressedclipname = videoprocess_fn.compressvideo(clipname)[1]
+                    await interaction.edit_original_message(content=stat)
+
+                    try: # Send again
+                        await interaction.followup.send(file=discord.File(f'{compressedclipname}.mp4'))
+                    
+                    except: # Can't send again
+                        size_compresesed = videoprocess_fn.getfilesize(f'{compressedclipname}.mp4')
+                        await interaction.edit_original_message(content=f"❌ **ไฟล์มีขนาดใหญ่เกินไป** `{size_compresesed}`**, ไม่สามารถบีบอัดได้มากกว่านี้**")
+
+                compress_button.callback = compress
+
+                compressview = discord.ui.View()
+                compressview.add_item(compress_button)
+
+                await interaction.edit_original_message(content=f"❌ **ไฟล์มีขนาดใหญ่เกินไป** `{size}`**, ต้องการบีบอัดไฟล์หรือไม่?**", view=compressview)
+
+
+################# COMPRESSION #################
+async def startcompress(interaction,clipname):
+    size = videoprocess_fn.getfilesize(f"temp/video/{clipname}")
+    
+    # Ask for compression
+    compress_button = discord.ui.Button(label='ลองบีบอัดไฟล์',emoji="🗜", style=discord.ButtonStyle.primary, custom_id="compress")
+
+    async def compress(interaction):
+        await interaction.response.edit_message(content=f"**🗜 กำลังบีบอัด...** `({size})`",view=None)
+
+        # Video Compression (เฉพาะโมดูล compressvideo ที่ไม่ต้องระบุ path)
+        stat = videoprocess_fn.compressvideo(clipname)[0]
+        compressedclipname = videoprocess_fn.compressvideo(clipname)[1]
+        await interaction.edit_original_message(content=stat)
+
+        try: # Send again
+            await interaction.followup.send(file=discord.File(f'{compressedclipname}.mp4'))
+        
+        except: # Can't send again
+            size_compresesed = videoprocess_fn.getfilesize(f'{compressedclipname}.mp4')
+            await interaction.edit_original_message(content=f"❌ **ไฟล์มีขนาดใหญ่เกินไป** `{size_compresesed}`**, ไม่สามารถบีบอัดได้มากกว่านี้**")
+
+    compress_button.callback = compress
+
+    compressview = discord.ui.View()
+    compressview.add_item(compress_button)
+
+    await interaction.edit_original_message(content=f"❌ **ไฟล์มีขนาดใหญ่เกินไป** `{size}`**, ต้องการบีบอัดไฟล์หรือไม่?**", view=compressview)
+##############################################
+
+
+################################################# Video Process #################################################
+@client.tree.command(name="video", description="🎥 การประมวลผลวิดีโอ")
+@app_commands.choices(command=[
+    app_commands.Choice(name="📹 ใส่เสียงในภาพ (ต้องอัพโหลดภาพและเสียงก่อนใช้งานคำสั่ง)",value="imgaudio"),
+    app_commands.Choice(name="📺 ใส่เสียง Youtube ในภาพ (ต้องใส่ลิ้ง Youtube)",value="ytaudio"),
+    app_commands.Choice(name="🧲 ต่อคลิปวิดีโอ (ต้องอัพโหลดวิดีโอที่ 2 หลังใช้งานคำสั่ง)",value="videomix")])
+
+@app_commands.describe(command="เลือกคำสั่งที่ต้องการ ",url="ลิ้งของวิดีโอ")
+async def downloader(interaction: discord.Interaction, command: discord.app_commands.Choice[str], url: Optional[str]):
+    if command.value == "imgaudio":
+        await interaction.response.send_message("**🎬 กำลังสร้าง...**")
+        image_path = f"temp/autosave/{client.last_image}"
+        audio_path = f"temp/autosave/{client.last_audio}"
+
+        # Optimize ให้ดีกว่านี้ได้ แต่ขี้เกียจแล้ว (Co-Pilot ช่วย)
+        output_last_image_nameonly = client.last_image.split(".")[0]
+        output_last_audio_nameonly = client.last_audio.split(".")[0]
+
+        output_path = f"temp/video/{output_last_image_nameonly}_{output_last_audio_nameonly}.mp4"
+        audio2video.add_static_image_to_audio(image_path, audio_path, output_path)
+
+        await interaction.edit_original_message(content="**✅ สร้างเสร็จแล้ว**")
+        await interaction.followup.send(file=discord.File(output_path))
+
+    elif command.value == "ytaudio":
+        name = youtubedl_fn.yt_audio_get_clip_name(url)
+        output_name_nameonly = name.split(".")[0]
+
+        await interaction.response.send_message(f"**📥 กำลังดาวน์โหลด `{output_name_nameonly}`**")
+        youtubedl_fn.yt_audio_dir(url)
+
+        await interaction.edit_original_message(content="**🎬 กำลังสร้าง...**")
+        image_path = f"temp/autosave/{client.last_image}"
+        audio_path = f"temp/audio/{name}"
+        
+        output_last_image_nameonly = client.last_image.split(".")[0]
+
+        output_path = f"temp/video/{output_last_image_nameonly}_{output_name_nameonly}.mp4"
+        audio2video.add_static_image_to_audio(image_path, audio_path, output_path)
+
+        await interaction.edit_original_message(content="**✅ สร้างเสร็จแล้ว**")
+        await interaction.followup.send(file=discord.File(output_path))
+
+    elif command.value == "videomix":
+        time_elaps = 0
+
+        clip1 = client.last_video
+        await interaction.response.send_message("**👀 โปรดส่งไฟล์วิดีโอที่จะต่อ**\n**🕐 เวลาที่เหลือ 30 วินาที**")
+
+        while time_elaps < 30:
+            if clip1 != client.last_video:
+                await interaction.edit_original_message(content="**✅ ได้รับไฟล์แล้ว**")
+                break
+            time_elaps += 1
+            await interaction.edit_original_message(content=f"**👀 โปรดส่งไฟล์วิดีโอที่จะต่อ**\n**🕐 เวลาที่เหลือ {30 - time_elaps} วินาที**")
+            await asyncio.sleep(1)
+            print("Clip1: ", clip1)
+            print("Clip2: ", client.last_video)
+        
+        if time_elaps >= 30:
+            await interaction.edit_original_message(content="**🕐 หมดเวลา**")
+            return
+
+        clip2 = client.last_video
+
+        confirm_button = discord.ui.Button(label='ยืนยัน',emoji="<:Approve:921703512382009354>", style=discord.ButtonStyle.green, custom_id="approve")
+        deny_button = discord.ui.Button(label='ยกเลิก',emoji="<:Deny:921703523111022642>", style=discord.ButtonStyle.red, custom_id="deny")
+        
+        async def confirm_callback(interaction):
+            await interaction.response.edit_message(content="**🎬 กำลังสร้าง...**", view=None)
+            output_path, output_name = videoprocess_fn.videomixer(clip1, clip2)
+            await interaction.followup.send(content="**✅ สร้างเสร็จแล้ว**")
+
+            try:
+                await interaction.followup.send(file=discord.File(output_path))
+            except:
+                print("Compresing")
+                startcompress(interaction, output_name)
+            
+
+        
+        async def deny_callback(interaction):
+            await interaction.response.edit_message(content="**❌ ยกเลิกแล้ว**")
+            pass
+
+        confirm_button.callback = confirm_callback
+        deny_button.callback = deny_callback
+        view = discord.ui.View()
+        view.add_item(confirm_button)
+        view.add_item(deny_button)
+
+        await interaction.followup.send(content=f"**ต้องการจะต่อคลิป** `{clip1}` **กับ** `{clip2}` **ใช่หรือไม่?**",view=view)
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+
+
+
 
 
 

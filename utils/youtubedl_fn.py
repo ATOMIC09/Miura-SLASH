@@ -1,3 +1,4 @@
+from asyncio import subprocess
 from youtube_dl import YoutubeDL
 
 VIDEO_YDL_OPTIONS = {'format': 'best'}
@@ -115,7 +116,12 @@ def yt_audio_dir(url):
         info = ydl.extract_info(url, download=True)
 
 # Download video into a directory
-def yt_video_dir(url):
+def yt_video_dir_best(url):
     VIDEO_YDL_OPTIONS = {'format': 'best', 'outtmpl': 'temp/video/%(title)s.%(ext)s'}
+    with YoutubeDL(VIDEO_YDL_OPTIONS) as ydl:
+        info = ydl.extract_info(url, download=True)
+
+def yt_video_dir_worst(url):
+    VIDEO_YDL_OPTIONS = {'format': 'worst', 'outtmpl': 'temp/video/%(title)s.%(ext)s'}
     with YoutubeDL(VIDEO_YDL_OPTIONS) as ydl:
         info = ydl.extract_info(url, download=True)

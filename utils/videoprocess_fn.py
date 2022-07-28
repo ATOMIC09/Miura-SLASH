@@ -2,8 +2,9 @@ import sys
 import os
 import subprocess
 import ffmpy
+import moviepy
 
-def ssssssss(file):
+def getfilesize(file):
     filestats = os.stat(file)
     return size_format(filestats.st_size)
 
@@ -11,9 +12,9 @@ def ssssssss(file):
 def size_format(n) :
     for u in ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB"]:
         if abs(n) < 1024.0 :
-            return f"{n:3.1f}{u}"
+            return f"{n:3.2f}{u}"
         n /= 1024.0
-    return f"{n:.1f}YB"
+    return f"{n:.2f}YB"
 
 # For compressing a video
 def compressvideo(file):
@@ -57,3 +58,17 @@ def compressvideo(file):
         percent = f"{percent:.2f}%"
 
     return f"🗜 **บีบอัดเหลือ** `{size_format(final_filestats.st_size)}`**,** `{percent}` **ของไฟล์ต้นฉบับ**", outputname
+
+def videomixer(inputclip1, inputclip2):
+    clip1 = moviepy.editor.VideoFileClip(f"temp/autosave/{inputclip1}")
+    clip2 = moviepy.editor.VideoFileClip(f"temp/autosave/{inputclip2}")
+
+    clip1_nameonly = inputclip1.split(".")[0]
+    clip2_nameonly = inputclip2.split(".")[0]
+
+    output = moviepy.editor.concatenate_videoclips([clip1, clip2])
+    output_path = f"temp/video/{clip1_nameonly}_{clip2_nameonly}.mp4"
+    output_name = f"{clip1_nameonly}_{clip2_nameonly}.mp4"
+    output.write_videofile(output_path)
+
+    return output_path, output_name
