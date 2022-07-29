@@ -1,4 +1,4 @@
-<h1 align="center">Welcome to Miura-SLASH 👋</h1>
+<h1 align="center">🪄 Welcome to Miura-SLASH 🤖</h1>
 <p>
   <img alt="Version" src="https://img.shields.io/badge/version-3.0-blue.svg?cacheSeconds=2592000" />
   <a href="https://twitter.com/atomic_phutawan" target="_blank">
@@ -14,3 +14,4 @@
 
 * Twitter: [@atomic\_phutawan](https://twitter.com/atomic_phutawan)
 * Github: [@ATOMIC09](https://github.com/ATOMIC09)
+* Discord: [@ATOMIC09](https://discords.com/bio/p/atomic09)
