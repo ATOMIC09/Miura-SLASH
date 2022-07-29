@@ -1,4 +1,4 @@
-git+git://github.com/Rapptz/discord.py
+git+https://github.com/Rapptz/discord.py
 requests
 python-dotenv==0.10.1
 youtube_dl==2021.12.17
