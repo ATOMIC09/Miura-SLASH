@@ -1061,7 +1061,7 @@ async def role(interaction: discord.Interaction, role: discord.app_commands.Choi
     if interaction.channel.id == role_assign_ch:
         if role.value != 13 or role.value != 17:
             await interaction.response.send_message(f"📨 **กำลังส่งคำขอบทบาท** `{role_name}` **ไปยังแอดมิน...**")
-            admin_channel = client.get_channel(733324708988190801) # GGWP: 733324708988190801 TEST: 929955422922747906
+            admin_channel = client.get_channel(931047869308362772) # GGWP: 931047869308362772 TEST: 929670988092825630
             
             req = discord.Embed(title = "🔧 **Role Request**", color = 0x6EEBFF)
             req.add_field(name=f"🪄 **บทบาทที่ต้องการ**", value=f"`{role_name}`")
