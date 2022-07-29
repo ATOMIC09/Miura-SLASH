@@ -1,14 +1,11 @@
 import asyncio
-from datetime import datetime
-from email import message
 from multiprocessing.spawn import import_main_path
 from typing import Optional
 import os
-from urllib import response
-from cv2 import VideoWriter
 import discord
 from discord import app_commands
 from discord.utils import get
+from discord.ext import tasks
 import requests
 import shutil
 import gtts
@@ -16,8 +13,9 @@ import pdf2image
 from youtube_dl import YoutubeDL
 import json
 import cv2
+import psutil
 
-from utils import countdown_fn, imageprocess_fn, videoprocess_fn, youtubedl_fn, shorten_url, sectobigger, audio2video, earrape_detector, sleeponkeyboard
+from utils import countdown_fn, imageprocess_fn, videoprocess_fn, youtubedl_fn, shorten_url, sectobigger, audio2video, earrape_detector, sleeponkeyboard, gdrive_dl
 from asset.lasereye import lasereye_fn
 
 MY_GUILD = discord.Object(id=720687175611580426)  # replace with your guild id
@@ -28,7 +26,25 @@ class MyClient(discord.Client):
         self.tree = app_commands.CommandTree(self)
 
     async def on_ready(self):
-        await client.change_presence(activity=discord.Game(name=f"💤 Standby..."))
+        await client.change_presence(activity=discord.Game(name="STARTING ●○○○ 🟡"))
+        print("Downloading : colorization_release_v2.caffemodel")
+        gdrive_dl.download_file_from_google_drive("1rVl9NFS21ckBAD7tEYGrZkpHWtPZvtfy", "asset/colorize/model/colorization_release_v2.caffemodel")
+        
+        await client.change_presence(activity=discord.Game(name="STARTING ●●○○ 🟡"))
+        print("Downloading : shape_predictor_68_face_landmarks.dat")
+        gdrive_dl.download_file_from_google_drive("1MycdtBY4bIlfOcIokkEtDft8qaqm3lqI", "asset/lasereye/gaze_tracking/trained_models/shape_predictor_68_face_landmarks.dat")
+        
+        await client.change_presence(activity=discord.Game(name="STARTING ●●●○ 🟡"))
+        if not check_member_activity.is_running():
+            check_member_activity.start()
+        if not exynas_status.is_running():
+            exynas_status.start()
+        if not host_status_change.is_running():
+            host_status_change.start()
+        if not autodelete.is_running():
+            autodelete.start()
+
+        await client.change_presence(activity=discord.Game(name="STARTING ●●●● 🟢"))
         print(f'Logged in as {self.user} (ID: {self.user.id})')
         print('----------------------------------------------------------')
 
@@ -632,17 +648,19 @@ async def image(interaction: discord.Interaction, command: discord.app_commands.
         
         elif command.value == "laser":
             shutil.copy(f"temp/autosave/{client.last_image}", f"asset/lasereye/input/{client.last_image}")
-            lasereye_fn.imagecov(client.last_image,1.5,client.name_only)
-            await interaction.response.send_message("**👁 กำลังสร้าง...**")
+            try:
+                lasereye_fn.imagecov(client.last_image,1.5,client.name_only)
+                await interaction.response.send_message("**👁 กำลังสร้าง...**")
 
-            if "_laser" in client.name_only:
-                file_name = discord.File(f"asset/lasereye/output/{client.name_only}.png")
-                await interaction.followup.send(file=file_name)
-            else:
-                file_name = discord.File(f"asset/lasereye/output/{client.name_only}_laser.png")
-                print(f"asset/lasereye/output/{client.name_only}_laser.png")
-                await interaction.followup.send(file=file_name)
-                
+                if "_laser" in client.name_only:
+                    file_name = discord.File(f"asset/lasereye/output/{client.name_only}.png")
+                    await interaction.followup.send(file=file_name)
+                else:
+                    file_name = discord.File(f"asset/lasereye/output/{client.name_only}_laser.png")
+                    print(f"asset/lasereye/output/{client.name_only}_laser.png")
+                    await interaction.followup.send(file=file_name)
+            except:
+                    await interaction.response.send_message("**❌ มีบางอย่างผิดพลาด**")
 
         elif command.value == "deepfry":
             shutil.copy(f"temp/autosave/{client.last_image}", f"asset/deepfry/deepfryer_input/{client.last_image}")
@@ -990,52 +1008,102 @@ async def downloader(interaction: discord.Interaction, command: discord.app_comm
         
 
 ################################################# Role Assignment #################################################
+normal_role_id = [1002218860696567838, # Liberal Arts & Humanities
+                  1002218555837775902, # Optometry
+                  1002217130319683665, # Economic
+                  1002209024835604631, # Business Administration
+                  1002214861146693784, # Physician & Science
+                  1002213667615539250, # Law & Politics
+                  1002211238450843668, # Media & Arts
+                  1002208236071559289, # IT & COMPUTER
+                  1002210612144771124, # Electricity & Engineering
+                  912520485135347732, # The First Order
+                  978174481451327498, # The Second Order
+                  978174737123516436, # The Third Order
+                  978664323092205608, # The Secret Order
+                  558524408314986497, # President
+                  781533838458880021, # Programmer
+                  972547872979554405, # Game Developer
+                  720143461650530377, # Bot Developer
+                  664075504101359636 # PrivateChatKey
+                  ]
+
 @client.tree.command(name="role", description="🪄 เลือกบทบาท")
 @app_commands.choices(role=[
-    app_commands.Choice(name="Electricity & Engineering",value="role1"),
-    app_commands.Choice(name="IT & COMPUTER",value="role2"),
-    app_commands.Choice(name="Media & Arts",value="role3"),
-    app_commands.Choice(name="Law & Politics",value="role4"),
-    app_commands.Choice(name="Physician & Science",value="role5"),
-    app_commands.Choice(name="Business Administration",value="role6"),
-    app_commands.Choice(name="Liberal Arts & Humanities",value="role7"),
-    app_commands.Choice(name="Optometry",value="role8"),
-    app_commands.Choice(name="Economics",value="role9"),
-    app_commands.Choice(name="The First Order",value="role10"),
-    app_commands.Choice(name="The Second Order",value="role11"),
-    app_commands.Choice(name="The Third Order",value="role12"),
-    app_commands.Choice(name="The Secret Order",value="role13"),
-    app_commands.Choice(name="President",value="role14"),
-    app_commands.Choice(name="Programmer",value="role15"),
-    app_commands.Choice(name="Game Developer",value="role16"),
-    app_commands.Choice(name="Bot Developer",value="role17"),
-    app_commands.Choice(name=".",value="role18"),
-
-
-    
-    
-    
+    app_commands.Choice(name="Liberal Arts & Humanities",value=0),
+    app_commands.Choice(name="Optometry",value=1),
+    app_commands.Choice(name="Economic",value=2),
+    app_commands.Choice(name="Business Administration",value=3),
+    app_commands.Choice(name="Physician & Science",value=4),
+    app_commands.Choice(name="Law & Politics",value=5),
+    app_commands.Choice(name="Media & Arts",value=6),
+    app_commands.Choice(name="IT & COMPUTER",value=7),
+    app_commands.Choice(name="Electricity & Engineering",value=8),
+    app_commands.Choice(name="The First Order",value=9),
+    app_commands.Choice(name="The Second Order",value=10),
+    app_commands.Choice(name="The Third Order",value=11),
+    app_commands.Choice(name="The Secret Order",value=12),
+    app_commands.Choice(name="President",value=13),
+    app_commands.Choice(name="Programmer",value=14),
+    app_commands.Choice(name="Game Developer",value=15),
+    app_commands.Choice(name="Bot Developer",value=16),
+    app_commands.Choice(name="PrivateChatKey",value=17),
     ])
 
 @app_commands.describe(role="เลือกคำสั่งที่ต้องการ")
-async def downloader(interaction: discord.Interaction, role: discord.app_commands.Choice[str]):
-    if role.value == "role1":
+async def role(interaction: discord.Interaction, role: discord.app_commands.Choice[int]):
+    user_channel = interaction.channel
+    user_req = interaction.user
+    role_id = normal_role_id[role.value]
+    role_name = user_req.guild.get_role(role_id)
 
-        activity = interaction.user.activity
-        if activity == None:
-            await interaction.response.send_message("None")
-        else:    
-            await interaction.response.send_message(activity.name)
+    if role.value != 13 or role.value != 17:
+        await interaction.response.send_message(f"📨 **กำลังส่งคำขอบทบาท** `{role_name}` **ไปยังแอดมิน...**")
+        admin_channel = client.get_channel(929955422922747906) # GGWP: 733324708988190801 TEST: 929955422922747906
         
+        req = discord.Embed(title = "🔧 **Role Request**", color = 0x6EEBFF)
+        req.add_field(name=f"🪄 **บทบาทที่ต้องการ**", value=f"`{role_name}`")
+        req.add_field(name=f"🧑 **ส่งคำขอโดย**", value=f"<@{user_req.id}>")
+        req.add_field(name=f"❔ **สถานะ**", value="*`Unconfirmed`*")
+        req.timestamp = interaction.created_at
 
+        accept = discord.ui.Button(label="ยอมรับ",emoji="<:Approve:921703512382009354>",style=discord.ButtonStyle.green)
+        deny = discord.ui.Button(label="ปฏิเสธ",emoji="<:Deny:921703523111022642>",style=discord.ButtonStyle.red)
 
+        async def accept_callback(interaction):
+            req = discord.Embed(title = "🔧 **Role Request**", color = 0x6EFF5A)
+            req.add_field(name=f"🪄 **บทบาทที่ต้องการ**", value=f"`{role_name}`")
+            req.add_field(name=f"🧑 **ส่งคำขอโดย**", value=f"<@{user_req.id}>")
+            req.add_field(name=f"✅ **ยอมรับโดย**", value=f"<@{interaction.user.id}>")
+            req.timestamp = interaction.created_at
+            await interaction.response.edit_message(embed=req,view=None)
+            await user_channel.send(f"**✅ เพิ่มบทบาท** `{role_name}` **สำเร็จแล้ว**")
+            await user_req.add_roles(role_name)
 
+        async def deny_callback(interaction):
+            req = discord.Embed(title = "🔧 **Role Request**", color = 0xFF3C3C)
+            req.add_field(name=f"🪄 **บทบาทที่ต้องการ**", value=f"`{role_name}`")
+            req.add_field(name=f"🧑 **ส่งคำขอโดย**", value=f"<@{user_req.id}>")
+            req.add_field(name=f"❌ **ปฏิเสธโดย**", value=f"<@{interaction.user.id}>")
+            req.timestamp = interaction.created_at
+            await interaction.response.edit_message(embed=req,view=None)
+            await user_channel.send(f"**❌ ถูกปฏิเสธคำขอบทบาท** `{role_name}`")
 
+        accept.callback = accept_callback
+        deny.callback = deny_callback
+        view = discord.ui.View()
+        view.add_item(accept)
+        view.add_item(deny)
 
+        await admin_channel.send(embed=req,view=view)
 
-
-
-
+    else: 
+        try: # ลองเพิ่มโรล
+            await user_req.add_roles(role_name)
+            print(f"✅ Role: {role_name} ({role_id}) added to {user_req.name}\n")
+            await interaction.response.send_message(f"**✅ เพิ่มบทบาท `{role_name}` สำเร็จแล้ว**")
+        except: # เพิ่มไม่ได้
+            print(f"❌ Cannot add role : {role_name} ({role_id}) to {user_req.name}\n")
 
 
 
@@ -1310,9 +1378,123 @@ async def on_member_join(person):
         print("Bot joined the server")
 
 
+################################################# On Error #################################################
+@client.event
+async def on_error(interaction, error):
+    channel = client.get_channel(1002552965858607185)
+    await channel.send(f"⚠ **Error:** `{error}`")
+    raise error
 
 
+################################################# Auto add game role #################################################
+role_check = [
+    'PUBG: BATTLEGROUNDS',
+    'Microsoft Flight Simulator',
+    'League of Legends',
+    'Rainbow Six Siege',
+    'Dead by Daylight',
+    'Genshin Impact',
+    'Forza Horizon 5',
+    'Forza Horizon 4',
+    'Forza Horizon 3',
+    'Minecraft',
+    'VALORANT',
+    'Phasmophobia',
+    'ROBLOX',
+            ]
 
-#อย่าลืมทำ Auto Delete ของ Auto Save
+role_id = [651222686931877889, # PUBG: BATTLEGROUNDS
+           755021011132350484, # Microsoft Flight Simulator
+           650645795460218880, # League of Legends
+           792757021027205150, # Rainbow Six Siege
+           721792119727194194, # Dead by Daylight
+           792709200992010250, # Genshin Impact
+           650644837313544192, # Forza Horizon 5
+           650644837313544192, # Forza Horizon 4
+           650644837313544192, # Forza Horizon 3
+           724926532853825547, # Minecraft
+           723574747727790150, # VALORANT
+           775389373302702080, # Phasmophobia
+           723575063412211732 # ROBLOX
+        ]
+
+@tasks.loop(seconds=180)
+async def check_member_activity():
+    guild = client.get_all_members()
+    # วน member แต่ละคน
+    for member in guild:
+        #print("👀 Checking member: ", member)
+
+        # ลองเก็บชื่อเกมใน Activity
+        try: 
+            activity = member.activity.name
+        except:
+            activity = member.activity
+
+        # หาใน role_check ว่ามีชื่อเกมนั้นไหม
+        if activity in role_check:
+            # วนลูปหาชื่อเกมใน role_check
+            for i in range(len(role_check)):
+                # ถ้าชื่อเกมตรงกับ Activity
+                if activity == role_check[i]:
+                    try: # ลองเพิ่มโรล
+                        await member.add_roles(member.guild.get_role(role_id[i]))
+                        print(f"✅ Role: {role_check[i]} ({role_id[i]}) added to {member.name}\n")
+                    except: # เพิ่มไม่ได้
+                        print(f"❌ Cannot add role : {role_check[i]} ({role_id[i]}) to {member.name}\n")
+        else: # ไม่เจอชื่อเกมใน role_check
+            #print(f"⚠️  {activity} is not in role_check\n")
+            pass
+
+@tasks.loop(seconds=301)
+async def exynas_status():
+    vc = client.get_channel(942363499777126411) #GGWP: 942382756422377472 TEST: 942363499777126411
+
+    # Check Exynas
+    try:
+        requests.get("https://exynas.myddns.me")
+        await vc.edit(name="Exynas : 🟢 ONLINE")
+    except:
+        await vc.edit(name="Exynas : 🔴 OFFLINE")
+
+@tasks.loop(seconds=30)
+async def host_status_change():
+    # Check Heroku Status
+    cpu = psutil.cpu_percent()
+    ram = psutil.virtual_memory()[2]
+    await client.change_presence(activity=discord.Game(name=f"CPU {cpu}% RAM {ram}%"))
+
+@tasks.loop(minutes=30)
+async def autodelete():
+    # Delete audio
+    dir = 'temp/test/audio' # temp/test/audio
+    for f in os.listdir(dir):
+        os.remove(os.path.join(dir, f))
+
+    # Delete autosave
+    dir = 'temp/test/autosave' # temp/test/autosave
+    for f in os.listdir(dir):
+        os.remove(os.path.join(dir, f))
+    
+    # Delete compressed
+    dir = 'temp/test/compressed' # temp/test/compressed
+    for f in os.listdir(dir):
+        os.remove(os.path.join(dir, f))
+    
+    # Delete document
+    dir = 'temp/test/document' # temp/test/document
+    for f in os.listdir(dir):
+        os.remove(os.path.join(dir, f))
+    
+    # Delete plocal
+    dir = 'temp/test/plocal' # temp/test/plocal
+    for f in os.listdir(dir):
+        os.remove(os.path.join(dir, f))
+    
+    # Delete video
+    dir = 'temp/test/video' # temp/test/video
+    for f in os.listdir(dir):
+        os.remove(os.path.join(dir, f))
+
 Token = os.environ['MiuraTesterToken']
 client.run(Token)
