@@ -20,3 +20,4 @@ gTTS
 google_images_download
 psutil
 qrcode
+pyshorteners
