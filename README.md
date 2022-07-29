@@ -2,7 +2,7 @@
 <p>
   <img alt="Version" src="https://img.shields.io/badge/version-3.0-blue.svg?cacheSeconds=2592000" />
   <a href="https://twitter.com/atomic_phutawan" target="_blank">
-    <img alt="Twitter: atomic\_phutawan" src="https://img.shields.io/twitter/follow/atomic\_phutawan.svg?style=social" />
+    <img alt="Twitter: atomic_phutawan" src="https://img.shields.io/twitter/follow/atomic_phutawan.svg?style=social" />
   </a>
 </p>
 
