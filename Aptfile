@@ -1,0 +1,12 @@
+libsm6
+libxrender1
+libfontconfig1
+libice6
+libopencv-core-dev
+poppler-utils
+libsndfile1
+libasound2-dev
+python-dev
+python-numpy
+python-setuptools
+libsndfile-dev

@@ -1,5 +1,4 @@
 import asyncio
-from multiprocessing.spawn import import_main_path
 from typing import Optional
 import os
 import discord
@@ -18,7 +17,7 @@ import psutil
 from utils import countdown_fn, imageprocess_fn, videoprocess_fn, youtubedl_fn, shorten_url, sectobigger, audio2video, earrape_detector, sleeponkeyboard, gdrive_dl
 from asset.lasereye import lasereye_fn
 
-MY_GUILD = discord.Object(id=720687175611580426)  # replace with your guild id
+MY_GUILD = discord.Object(id=452857558596714507)  # GGWP: 452857558596714507 TEST: 720687175611580426
 
 class MyClient(discord.Client):
     def __init__(self, *, intents: discord.Intents):
@@ -79,6 +78,7 @@ async def help(interaction: discord.Interaction):
     util.add_field(name="**🛡 ยกเว้นการตัดการเชื่อมต่อ**", value="`/except`", inline=False) 
     util.add_field(name="**👄 สังเคราะห์เสียง**", value="`/tts`", inline=False)
     util.add_field(name="**📄 แปลงเอกสารเป็นรูปภาพ**", value="`/pdftopng`", inline=False)
+    util.add_field(name="**🪄 เลือกบทบาท**", value="`/role`", inline=False)
     util.add_field(name="**❌ ยกเลิกคำสั่ง**", value="`/cancel`", inline=False)
 
     music = discord.Embed(title="**❔ ช่วยเหลือ**",description="╰ *🎵 มีเดียและเพลง*", color=0xff3859)
@@ -128,7 +128,7 @@ async def help(interaction: discord.Interaction):
     update.add_field(name="7️⃣ V 2.6 | 21/01/2022", value="• Add: Earrape Warning\n• Add: Video Processing")
     update.add_field(name="8️⃣ V 2.7 | 09/02/2022", value="• Add: Laser Eye Meme\n• Add: Text to Speech\n• Add: Image Properties\n• Add: Image Processing\n• Add: Video Processing")
     update.add_field(name="9️⃣ V 2.8 | 26/03/2022", value="• Add: Hosting Server Status\n• Add: Countdis Exception\n• Add: QR Code Generator\n• Add: เปลี่ยนระบบเลือกบทบาท\n• Add: ระบบแปลคำเพี้ยน")
-    update.add_field(name="9️⃣ V 3.0 | 26/03/2022", value="**รอการอัพเดท**")
+    update.add_field(name="9️⃣ V 3.0 | 29/07/2022", value="• ยกเครื่องใหม่ทั้งหมดไปเป็น Discord Py 2.0 พร้อมกับ Slash Command แบบใหม่")
 
     select = discord.ui.Select(placeholder="ตัวเลือกเมนู",options=[
     discord.SelectOption(label="เครื่องมืออรรถประโยชน์",emoji="🔧",description="คำสั่งการใช้งานทั่วไป",value="util",default=False),
@@ -1052,60 +1052,63 @@ normal_role_id = [1002218860696567838, # Liberal Arts & Humanities
 
 @app_commands.describe(role="เลือกคำสั่งที่ต้องการ")
 async def role(interaction: discord.Interaction, role: discord.app_commands.Choice[int]):
+    role_assign_ch = 733324708988190801 # GGWP: 733324708988190801 TEST: 929955422922747906  
     user_channel = interaction.channel
     user_req = interaction.user
     role_id = normal_role_id[role.value]
     role_name = user_req.guild.get_role(role_id)
 
-    if role.value != 13 or role.value != 17:
-        await interaction.response.send_message(f"📨 **กำลังส่งคำขอบทบาท** `{role_name}` **ไปยังแอดมิน...**")
-        admin_channel = client.get_channel(929955422922747906) # GGWP: 733324708988190801 TEST: 929955422922747906
-        
-        req = discord.Embed(title = "🔧 **Role Request**", color = 0x6EEBFF)
-        req.add_field(name=f"🪄 **บทบาทที่ต้องการ**", value=f"`{role_name}`")
-        req.add_field(name=f"🧑 **ส่งคำขอโดย**", value=f"<@{user_req.id}>")
-        req.add_field(name=f"❔ **สถานะ**", value="*`Unconfirmed`*")
-        req.timestamp = interaction.created_at
-
-        accept = discord.ui.Button(label="ยอมรับ",emoji="<:Approve:921703512382009354>",style=discord.ButtonStyle.green)
-        deny = discord.ui.Button(label="ปฏิเสธ",emoji="<:Deny:921703523111022642>",style=discord.ButtonStyle.red)
-
-        async def accept_callback(interaction):
-            req = discord.Embed(title = "🔧 **Role Request**", color = 0x6EFF5A)
+    if interaction.channel.id == role_assign_ch:
+        if role.value != 13 or role.value != 17:
+            await interaction.response.send_message(f"📨 **กำลังส่งคำขอบทบาท** `{role_name}` **ไปยังแอดมิน...**")
+            admin_channel = client.get_channel(733324708988190801) # GGWP: 733324708988190801 TEST: 929955422922747906
+            
+            req = discord.Embed(title = "🔧 **Role Request**", color = 0x6EEBFF)
             req.add_field(name=f"🪄 **บทบาทที่ต้องการ**", value=f"`{role_name}`")
             req.add_field(name=f"🧑 **ส่งคำขอโดย**", value=f"<@{user_req.id}>")
-            req.add_field(name=f"✅ **ยอมรับโดย**", value=f"<@{interaction.user.id}>")
+            req.add_field(name=f"❔ **สถานะ**", value="*`Unconfirmed`*")
             req.timestamp = interaction.created_at
-            await interaction.response.edit_message(embed=req,view=None)
-            await user_channel.send(f"**✅ เพิ่มบทบาท** `{role_name}` **สำเร็จแล้ว**")
-            await user_req.add_roles(role_name)
 
-        async def deny_callback(interaction):
-            req = discord.Embed(title = "🔧 **Role Request**", color = 0xFF3C3C)
-            req.add_field(name=f"🪄 **บทบาทที่ต้องการ**", value=f"`{role_name}`")
-            req.add_field(name=f"🧑 **ส่งคำขอโดย**", value=f"<@{user_req.id}>")
-            req.add_field(name=f"❌ **ปฏิเสธโดย**", value=f"<@{interaction.user.id}>")
-            req.timestamp = interaction.created_at
-            await interaction.response.edit_message(embed=req,view=None)
-            await user_channel.send(f"**❌ ถูกปฏิเสธคำขอบทบาท** `{role_name}`")
+            accept = discord.ui.Button(label="ยอมรับ",emoji="<:Approve:921703512382009354>",style=discord.ButtonStyle.green)
+            deny = discord.ui.Button(label="ปฏิเสธ",emoji="<:Deny:921703523111022642>",style=discord.ButtonStyle.red)
 
-        accept.callback = accept_callback
-        deny.callback = deny_callback
-        view = discord.ui.View()
-        view.add_item(accept)
-        view.add_item(deny)
+            async def accept_callback(interaction):
+                req = discord.Embed(title = "🔧 **Role Request**", color = 0x6EFF5A)
+                req.add_field(name=f"🪄 **บทบาทที่ต้องการ**", value=f"`{role_name}`")
+                req.add_field(name=f"🧑 **ส่งคำขอโดย**", value=f"<@{user_req.id}>")
+                req.add_field(name=f"✅ **ยอมรับโดย**", value=f"<@{interaction.user.id}>")
+                req.timestamp = interaction.created_at
+                await interaction.response.edit_message(embed=req,view=None)
+                await user_channel.send(f"**✅ เพิ่มบทบาท** `{role_name}` **สำเร็จแล้ว**")
+                await user_req.add_roles(role_name)
 
-        await admin_channel.send(embed=req,view=view)
+            async def deny_callback(interaction):
+                req = discord.Embed(title = "🔧 **Role Request**", color = 0xFF3C3C)
+                req.add_field(name=f"🪄 **บทบาทที่ต้องการ**", value=f"`{role_name}`")
+                req.add_field(name=f"🧑 **ส่งคำขอโดย**", value=f"<@{user_req.id}>")
+                req.add_field(name=f"❌ **ปฏิเสธโดย**", value=f"<@{interaction.user.id}>")
+                req.timestamp = interaction.created_at
+                await interaction.response.edit_message(embed=req,view=None)
+                await user_channel.send(f"**❌ ถูกปฏิเสธคำขอบทบาท** `{role_name}`")
 
-    else: 
-        try: # ลองเพิ่มโรล
-            await user_req.add_roles(role_name)
-            print(f"✅ Role: {role_name} ({role_id}) added to {user_req.name}\n")
-            await interaction.response.send_message(f"**✅ เพิ่มบทบาท `{role_name}` สำเร็จแล้ว**")
-        except: # เพิ่มไม่ได้
-            print(f"❌ Cannot add role : {role_name} ({role_id}) to {user_req.name}\n")
+            accept.callback = accept_callback
+            deny.callback = deny_callback
+            view = discord.ui.View()
+            view.add_item(accept)
+            view.add_item(deny)
 
+            await admin_channel.send(embed=req,view=view)
 
+        else: 
+            try: # ลองเพิ่มโรล
+                await user_req.add_roles(role_name)
+                print(f"✅ Role: {role_name} ({role_id}) added to {user_req.name}\n")
+                await interaction.response.send_message(f"**✅ เพิ่มบทบาท `{role_name}` สำเร็จแล้ว**")
+            except: # เพิ่มไม่ได้
+                print(f"❌ Cannot add role : {role_name} ({role_id}) to {user_req.name}\n")
+
+    else:
+        await interaction.response.send_message(f"**❌ ใช้คำสั่งที่ <#{role_assign_ch}>**")
 
 
 ################################################# Image Message Context #################################################
@@ -1151,7 +1154,7 @@ async def report_message(interaction: discord.Interaction, message: discord.Mess
     await interaction.response.send_message(
         f'ขอบคุณ {message.author.mention} ที่รายงานข้อความกับแอดมิน', ephemeral=True)
 
-    log_channel = interaction.guild.get_channel(929670988092825630)
+    log_channel = interaction.guild.get_channel(931047869308362772) #GGWP: 931047869308362772 TEST: 929670988092825630
 
     embed = discord.Embed(title='Reported Message')
     if message.content:
@@ -1248,7 +1251,7 @@ async def on_message(message):
     # Scamming Protection
     if message.author.id != 907247505346035752:
         keyword = ""
-        channel_admin = client.get_channel(929670988092825630)
+        channel_admin = client.get_channel(931047869308362772) #GGWP: 931047869308362772 TEST: 929670988092825630
         member = message.author
         role = discord.utils.get(message.guild.roles, name="⚠️ HACKED ⚠️")
 
@@ -1340,9 +1343,9 @@ async def on_message(message):
 @client.event
 async def on_member_join(person):
     if person.bot == False:
-        new_member = 851081137093738576 #GGWP: 727555789056639027 TEST: 851081137093738576
+        new_member = 727555789056639027 #GGWP: 727555789056639027 TEST: 851081137093738576
         dj = 781371092899856404
-        visitor = 1002230382340603964 #GGWP: 1002231984954818633 TEST: 1002230382340603964
+        visitor = 1002231984954818633 #GGWP: 1002231984954818633 TEST: 1002230382340603964
 
         await person.add_roles(person.guild.get_role(visitor))
 
@@ -1371,7 +1374,7 @@ async def on_member_join(person):
         view = discord.ui.View()
         view.add_item(agree_button)
 
-        channel = client.get_channel(721034213264195715) #GGWP: 452857558596714509 TEST: 721034213264195715
+        channel = client.get_channel(452857558596714509) #GGWP: 452857558596714509 TEST: 721034213264195715
         await channel.send(embed=welcome,view=view)
 
     else:
@@ -1448,7 +1451,7 @@ async def check_member_activity():
 
 @tasks.loop(seconds=301)
 async def exynas_status():
-    vc = client.get_channel(942363499777126411) #GGWP: 942382756422377472 TEST: 942363499777126411
+    vc = client.get_channel(942382756422377472) #GGWP: 942382756422377472 TEST: 942363499777126411
 
     # Check Exynas
     try:
@@ -1467,34 +1470,34 @@ async def host_status_change():
 @tasks.loop(minutes=30)
 async def autodelete():
     # Delete audio
-    dir = 'temp/test/audio' # temp/test/audio
+    dir = 'temp/audio' # temp/test/audio
     for f in os.listdir(dir):
         os.remove(os.path.join(dir, f))
 
     # Delete autosave
-    dir = 'temp/test/autosave' # temp/test/autosave
+    dir = 'temp/autosave' # temp/test/autosave
     for f in os.listdir(dir):
         os.remove(os.path.join(dir, f))
     
     # Delete compressed
-    dir = 'temp/test/compressed' # temp/test/compressed
+    dir = 'temp/compressed' # temp/test/compressed
     for f in os.listdir(dir):
         os.remove(os.path.join(dir, f))
     
     # Delete document
-    dir = 'temp/test/document' # temp/test/document
+    dir = 'temp/document' # temp/test/document
     for f in os.listdir(dir):
         os.remove(os.path.join(dir, f))
     
     # Delete plocal
-    dir = 'temp/test/plocal' # temp/test/plocal
+    dir = 'temp/plocal' # temp/test/plocal
     for f in os.listdir(dir):
         os.remove(os.path.join(dir, f))
     
     # Delete video
-    dir = 'temp/test/video' # temp/test/video
+    dir = 'temp/video' # temp/test/video
     for f in os.listdir(dir):
         os.remove(os.path.join(dir, f))
 
-Token = os.environ['MiuraTesterToken']
+Token = os.environ['MiuraToken']
 client.run(Token)
