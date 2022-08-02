@@ -610,7 +610,7 @@ async def image(interaction: discord.Interaction, command: discord.app_commands.
             query_string = json.loads(response.content)['blocks'][0]['params']['url']
             img_search_url= searchUrl + '?' + query_string
 
-            search = discord.Embed(title = "**🔦 คุณสมบัติรูปภาพ**", color = 0x5be259)
+            search = discord.Embed(title = "**🔎 ค้นหาภาพคล้าย**", color = 0x5be259)
             search.set_thumbnail(url=client.last_image_url)
             search.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
             search.timestamp = interaction.created_at
